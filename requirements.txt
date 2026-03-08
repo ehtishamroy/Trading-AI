@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────
+# ML Trading System v2 — Dependencies
+# Install: pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────
+
+# Core
+python-dotenv==1.0.0
+numpy>=1.26.0
+pandas>=2.2.0
+
+# MT5 Connection (Exness)
+MetaTrader5>=5.0.45
+
+# Technical Analysis
+ta>=0.11.0
+
+# Deep Learning (GPU)
+torch>=2.2.0
+
+# Gradient Boosting
+xgboost>=2.0.3
+lightgbm>=4.3.0
+scikit-learn>=1.4.0
+
+# Market Regime Detection
+hmmlearn>=0.3.2
+
+# SHAP (feature attribution)
+shap>=0.45.0
+
+# Claude AI
+anthropic>=0.20.0
+
+# News & Sentiment
+requests>=2.31.0
+
+# Dashboard
+streamlit>=1.31.0
+plotly>=5.18.0
+
+# Telegram Bot
+python-telegram-bot>=21.0
+
+# Backtesting
+vectorbt>=0.26.1
+
+# Storage
+pyarrow>=15.0.0
+
+# Utilities
+loguru>=0.7.2
+schedule>=1.2.1
+tqdm>=4.66.0
+joblib>=1.3.2
+PyPDF2>=3.0.0
+
+# Reinforcement Learning (Phase 10)
+stable-baselines3[extra]>=2.2.1
+gymnasium>=0.29.1
