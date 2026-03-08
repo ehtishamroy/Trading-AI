@@ -1,12 +1,12 @@
 {
   "market": "BTCUSD",
-  "timestamp": "2026-03-08T23:35:06.124499",
+  "timestamp": "2026-03-09T00:15:03.263251",
   "current_price": {
     "symbol": "BTCUSDm",
-    "bid": 66949.39,
-    "ask": 66967.39,
+    "bid": 67051.59,
+    "ask": 67069.59,
     "spread": 18.0,
-    "time": "2026-03-08 23:34:17"
+    "time": "2026-03-09 00:14:06"
   },
   "account": {
     "balance": 498.78,
@@ -21,12 +21,12 @@
     "confidence": 0.7,
     "signal_strength": "MODERATE",
     "agreement": true,
-    "combined_score": "0.5642",
+    "combined_score": "0.5561",
     "details": {
       "lstm": {
         "direction": "up",
-        "confidence": 0.6003,
-        "raw_probability": 0.6003
+        "confidence": 0.5855,
+        "raw_probability": 0.5855
       },
       "xgboost": {
         "direction": "up",
@@ -36,36 +36,36 @@
       },
       "regime": {
         "regime": "TRENDING_DOWN",
-        "confidence": 0.33,
+        "confidence": 0.5,
         "scores": {
           "TRENDING_UP": 0,
           "TRENDING_DOWN": 3,
           "RANGING": 3,
-          "HIGH_VOLATILITY": 3
+          "HIGH_VOLATILITY": 0
         },
         "details": {
-          "adx": 31.0,
-          "bb_width": 0.0131,
-          "volatility_ratio": 1.59,
-          "atr_pct": 0.0039
+          "adx": 31.68,
+          "bb_width": 0.0102,
+          "volatility_ratio": 1.49,
+          "atr_pct": 0.0037
         }
       }
     }
   },
   "regime": {
     "regime": "TRENDING_DOWN",
-    "confidence": 0.33,
+    "confidence": 0.5,
     "scores": {
       "TRENDING_UP": 0,
       "TRENDING_DOWN": 3,
       "RANGING": 3,
-      "HIGH_VOLATILITY": 3
+      "HIGH_VOLATILITY": 0
     },
     "details": {
-      "adx": 31.0,
-      "bb_width": 0.0131,
-      "volatility_ratio": 1.59,
-      "atr_pct": 0.0039
+      "adx": 31.68,
+      "bb_width": 0.0102,
+      "volatility_ratio": 1.49,
+      "atr_pct": 0.0037
     }
   },
   "sentiment": {
@@ -82,21 +82,21 @@
       "stop_loss": null,
       "take_profit": null,
       "lot_size": null,
-      "reasoning": "This is a classic case where conflicting signals create too much uncertainty for profitable trading. The ML ensemble shows 70% UP confidence, but this is undermined by several critical factors: 1) Market regime clearly indicates TRENDING_DOWN with strategy to sell rallies - we'd be fighting the established trend, 2) The 18-pip spread on a $200 account is devastating - requiring 36+ pips just for minimal profit, 3) Sunday night timing provides poor liquidity and higher risk of gaps/whipsaws, 4) ML confidence levels (60% LSTM, 52% XGBoost) are marginal at best for BTC's inherent volatility. With high volatility (1.59x normal), I should reduce position size by 50% per rules, but even then the risk/reward doesn't justify entry. The regime mismatch is the killer - buying into a downtrending market on weak signals violates sound trading principles.",
+      "reasoning": "This is a classic example of conflicting signals creating a trap setup. While the ML ensemble shows 70% confidence for UP, the market regime clearly states TRENDING_DOWN with strategy 'sell rallies to EMA.' The Bear agent correctly identifies this as a counter-trend trade against the established regime. Additionally, the 18-pip spread is devastating for a $500 account - requiring 36+ pips just to breakeven. The timing during Asian low-liquidity session (00:14:06) with elevated volatility (Vol Ratio 1.49) compounds the risks. The ML confidence levels are marginal (59% LSTM, 52% XGBoost) and we have zero historical pattern validation. This violates the core principle of capital preservation - better to wait for a cleaner, regime-aligned setup than force a trade in no-man's land at $67K resistance.",
       "bull_strength": "MODERATE",
       "bear_strength": "STRONG",
-      "pre_mortem": "If I had taken this trade, it would likely fail because: 1) The downtrend would reassert itself after this brief uptick, 2) The wide spread would eat into profits immediately, 3) Weekend gaps or Asia open could trigger stops on thin liquidity, 4) Without news catalyst, any ML-driven move would likely be short-lived noise rather than sustainable trend change.",
+      "pre_mortem": "If I took the long trade, it would likely fail due to: 1) Immediate 18-pip spread hit creating psychological pressure, 2) Rejection at $67K psychological resistance level with institutions selling, 3) Low liquidity allowing algos to hunt stops during Asian session, 4) Counter-trend nature conflicting with the TRENDING_DOWN regime causing quick reversal.",
       "key_risks": [
-        "Fighting established downtrend regime",
-        "Prohibitive 18-pip spread on small account",
-        "Weekend/overnight gap risk with thin liquidity",
-        "Marginal ML confidence insufficient for BTC volatility"
+        "18-pip spread burden on micro account",
+        "Counter-trend trade against TRENDING_DOWN regime",
+        "Low liquidity Asian session timing",
+        "$67K major resistance level"
       ],
-      "what_changes_mind": "Would need to see: 1) Market regime shift to TRENDING_UP or clear reversal pattern, 2) ML confidence above 80% with stronger model agreement, 3) Fundamental news catalyst supporting upward move, 4) Better timing during high liquidity hours, 5) Tighter spreads"
+      "what_changes_mind": "Would need either: 1) Clear break above $67,500 with volume confirmation and regime change signal, 2) ML confidence above 80% with tighter spreads, 3) Fundamental catalyst creating new bullish sentiment, or 4) Wait for regime to shift from TRENDING_DOWN to TRENDING_UP"
     },
-    "bull_case": "# \ud83d\udfe2 BULL CASE for BTCUSD - STRONG BUY SIGNAL\n\n## The Numbers Don't Lie - Here's Why We BUY NOW:\n\n### \ud83c\udfaf **ML ENSEMBLE SCREAMING BUY**\n- **70% confidence UP signal** - This is MONEY TALKING\n- **Both models aligned**: LSTM (60%) + XGBoost (52%) = CONVERGENCE\n- **Model agreement = YES** \u2705 - When machines agree, we LISTEN\n\n### \ud83d\udd25 **TECHNICAL SETUP IS PRIME**\n- **ADX = 31.0** - Strong directional momentum building\n- **High volatility (Vol Ratio 1.59)** = Big move incoming\n- **Bollinger Band Width = 0.0131** - Coiled spring ready to EXPLODE\n\n### \ud83d\udcb0 **PERFECT RISK/REWARD AT $66,967**\n- Entry: $66,967\n- Stop: $65,967 (1.5x ATR = 1,000 pips)\n- Target: $68,967+ (2,000+ pips minimum)\n- **Risk/Reward: 1:2+ CONFIRMED** \u2705\n\n### \u26a1 **MARKET REGIME CONTRADICTION = OPPORTUNITY**\nHere's the GENIUS play: Market regime shows \"TRENDING_DOWN\" but ML signals UP!\nThis is classic **REVERSAL SETUP** - we're catching the turn EARLY!\n\n### \ud83d\udcca **POSITION SIZING PERFECTION**\n- Balance: $498.78\n- Risk: $9.98 (2% max)\n- Micro lot: 0.01\n- **100% position size** (normal volatility adjustment)\n\n### \ud83c\udfaa **NEWS VACUUM = TECHNICAL PURE PLAY**\n- Zero news interference (0 articles)\n- Pure price action setup\n- No fundamental noise to derail technical signals\n\n## THE BULL THESIS:\nBitcoin at $66,967 with 70% ML confidence UP signal is a **HIGH-PROBABILITY REVERSAL PLAY**. We're positioned to catch the momentum shift from bearish to bullish trend. The ADX shows building directional strength, and when it breaks, we ride the wave UP.\n\n**Entry NOW at market: $66,967**\n**Stop: $65,967**\n**Target 1: $68,967**\n**Target 2: $69,967+**\n\nThis is textbook risk management with asymmetric upside. The machines have spoken - TIME TO BUY! \ud83d\ude80\n\n*Risk: $9.98 | Reward: $20+ | Ratio: 1:2+*",
-    "bear_case": "# \ud83d\udd34 BEAR CASE: STAY OUT OR SELL \ud83d\udd34\n\n## \u274c REGIME MISMATCH \u2014 FATAL FLAW #1\n**The models say UP, but the REGIME says TRENDING_DOWN!**\n- Market regime: TRENDING_DOWN (Strategy: sell rallies to EMA)\n- **This is EXACTLY a rally to sell into**\n- ADX = 31.0 confirms strong downtrend in place\n- **You'd be buying into resistance in a bear market**\n\n## \ud83d\udea8 WEAK ML CONFIDENCE \u2014 RED FLAG #2\n- LSTM: Only 60% confidence (barely above coin flip)\n- XGBoost: Pathetic 52% confidence (this is noise, not signal)\n- **Combined 70% is NOT strong enough for BTC's volatility**\n- **These models are guessing, not predicting**\n\n## \u26a1 VOLATILITY TRAP \u2014 CAPITAL KILLER #3\n- Vol Ratio = 1.59 (59% above normal)\n- BB Width = 0.0131 (expanded volatility)\n- **High vol = reduce position 50% per your rules**\n- **Every whipsaw will cost you disproportionately**\n- BTC can gap $1000+ overnight \u2014 your $200 account can't survive this\n\n## \ud83d\udcca SPREAD COST DEVASTATION #4\n- **18 pip spread on a $200 account is MASSIVE**\n- Need 18 pips just to break even\n- **That's already -0.18% of your account before the trade starts**\n- BTC needs to move 36+ pips for minimal profit\n- **The house edge is crushing at this account size**\n\n## \ud83d\udd70\ufe0f TIMING DISASTER #5\n- **Sunday night at 23:34 \u2014 worst liquidity window**\n- Asian markets haven't opened, US/Europe closed\n- **Perfect setup for stop hunting and fake moves**\n- Weekend gaps and thin orderbooks = death for small accounts\n\n## \ud83d\udcf0 NEWS VOID \u2014 FLYING BLIND #6\n- **Zero news articles in 12 hours**\n- No fundamental catalyst for the ML \"signal\"\n- **Technical signals without news backing = noise**\n- BTC is news-driven \u2014 silence often precedes selloffs\n\n## \ud83d\udc80 ACCOUNT SIZE REALITY CHECK #7\n- **$200 account with BTC is like bringing a knife to a gunfight**\n- One bad move = -50% account\n- **No room for drawdown management**\n- Better to wait for clearer, lower-risk setups\n\n## \ud83c\udfaf RECOMMENDED ACTION\n**STAY OUT or go SHORT on any bounce to EMA**\n- Market regime trumps weak ML signals\n- Protect your capital \u2014 this setup has trap written all over it\n- Wait for regime change or much stronger conviction signals\n\n**The market is in a downtrend. Your models are uncertain. Your account is small. The spread is wide. The timing is poor. This is a recipe for disaster.**\n\n**Cash is a position. Sometimes the best trade is no trade.** \ud83d\udee1\ufe0f",
-    "judge_raw": "```json\n{\n    \"decision\": \"HOLD\",\n    \"confidence\": 4,\n    \"entry_price\": null,\n    \"stop_loss\": null,\n    \"take_profit\": null,\n    \"lot_size\": null,\n    \"reasoning\": \"This is a classic case where conflicting signals create too much uncertainty for profitable trading. The ML ensemble shows 70% UP confidence, but this is undermined by several critical factors: 1) Market regime clearly indicates TRENDING_DOWN with strategy to sell rallies - we'd be fighting the established trend, 2) The 18-pip spread on a $200 account is devastating - requiring 36+ pips just for minimal profit, 3) Sunday night timing provides poor liquidity and higher risk of gaps/whipsaws, 4) ML confidence levels (60% LSTM, 52% XGBoost) are marginal at best for BTC's inherent volatility. With high volatility (1.59x normal), I should reduce position size by 50% per rules, but even then the risk/reward doesn't justify entry. The regime mismatch is the killer - buying into a downtrending market on weak signals violates sound trading principles.\",\n    \"bull_strength\": \"MODERATE\",\n    \"bear_strength\": \"STRONG\",\n    \"pre_mortem\": \"If I had taken this trade, it would likely fail because: 1) The downtrend would reassert itself after this brief uptick, 2) The wide spread would eat into profits immediately, 3) Weekend gaps or Asia open could trigger stops on thin liquidity, 4) Without news catalyst, any ML-driven move would likely be short-lived noise rather than sustainable trend change.\",\n    \"key_risks\": [\"Fighting established downtrend regime\", \"Prohibitive 18-pip spread on small account\", \"Weekend/overnight gap risk with thin liquidity\", \"Marginal ML confidence insufficient for BTC volatility\"],\n    \"what_changes_mind\": \"Would need to see: 1) Market regime shift to TRENDING_UP or clear reversal pattern, 2) ML confidence above 80% with stronger model agreement, 3) Fundamental news catalyst supporting upward move, 4) Better timing during high liquidity hours, 5) Tighter spreads\"\n}\n```"
+    "bull_case": "# \ud83d\udfe2 BULL CASE for BTCUSD \u2014 The Momentum Shift is HERE!\n\n## \ud83d\ude80 STRONGEST BUY SIGNALS:\n\n### **1. ML ENSEMBLE SCREAMING BUY!**\n- **70% confidence on COMBINED UP signal** \u2014 This is SOLID conviction!\n- **BOTH models aligned**: LSTM (59%) + XGBoost (52%) = NO disagreement\n- **This is above our 5+ confidence threshold** \u2014 Models are seeing something the eye can't!\n\n### **2. PERFECT CONTRARIAN SETUP**\n- Market regime shows \"TRENDING_DOWN\" but **confidence is ONLY 50%**\n- This is a **WEAK bearish regime** \u2014 ripe for reversal!\n- We're at **potential exhaustion** of the downtrend\n- Classic setup: **\"Buy when others are fearful\"**\n\n### **3. VOLATILITY IS WORKABLE**\n- Vol Ratio at 1.49 \u2014 elevated but not extreme\n- BB Width at 0.0102 shows compression ending\n- **Volatility expansion typically favors the ML-predicted direction**\n\n### **4. TECHNICAL CONFLUENCE**\n- ADX at 31.68 shows **strong momentum potential**\n- If we break above current resistance, ADX confirms trend strength\n- **Price action at decision point** \u2014 perfect entry timing\n\n### **5. CLEAN NEWS ENVIRONMENT**\n- **Zero negative sentiment** (Neutral 0.0)\n- No fundamental headwinds to fight\n- **Pure technical play** without macro interference\n\n## \ud83c\udfaf TRADE SETUP:\n- **Entry**: 67070 (just above ask)\n- **Stop**: 66900 (170 pip risk = $1.70 with 0.01 lot)\n- **Target 1**: 67410 (340 pip reward = $3.40)\n- **Risk/Reward**: 2:1 \u2705\n- **Position**: 0.01 lot (under 2% risk rule)\n\n## \ud83d\udd25 WHY THIS WORKS:\nThe ML models are detecting **early momentum shifts** that haven't fully materialized in price yet. With weak bearish regime confidence and strong model agreement, we're positioned for a **momentum breakout to the upside**.\n\n**Risk**: $1.70 | **Reward**: $3.40 | **Probability**: 70%\n\n**This is a HIGH-QUALITY setup that fits all our criteria!** \ud83d\ude80",
+    "bear_case": "# \ud83d\udd34 BEAR CASE: STAY AWAY FROM THIS BTC LONG\n\n## \ud83d\udea8 CRITICAL RED FLAGS \u2014 This is a TRAP Setup\n\n### 1. **REGIME CONTRADICTION = DEATH SENTENCE**\n- **Market Regime**: TRENDING_DOWN (50% confidence)\n- **Strategy**: Literally says \"sell rallies to EMA\"\n- **Your ML models want you to BUY into a DOWNTREND??**\n- This is textbook counter-trend suicide at $500 account size\n\n### 2. **WEAK ML CONFIDENCE SCREAMS UNCERTAINTY**\n- LSTM: Only 59% confidence (barely above coin flip)\n- XGBoost: Pathetic 52% confidence (might as well guess)\n- **Combined 70%** sounds good until you realize both models are wishy-washy\n- At this account size, you need CONVICTION, not \"maybe\"\n\n### 3. **BTC at $67K = MASSIVE OVERHEAD RESISTANCE**\n- We're near major psychological level\n- Every institution that bought the top is looking to get out\n- $67K has been a battleground \u2014 expect rejection\n- You're buying into supply zone\n\n### 4. **SPREAD IS KILLING YOU**\n- 18-pip spread on $500 account = instant 18-pip loss\n- Need price to move 36+ pips just to breakeven after spread\n- This spread alone violates your risk management at micro lot sizes\n\n### 5. **TIMING IS HORRIBLE**\n- **00:14:06** = Low liquidity Asian session\n- Wider spreads, fake moves, algorithm hunting stops\n- Professional traders are asleep, algos are playing games\n- You're trading against the machines in thin conditions\n\n### 6. **NO PATTERN MEMORY = FLYING BLIND**\n- \"No historical patterns recorded yet\"\n- You're trusting unproven ML models with no track record\n- RL Agent isn't even trained \u2014 you're the guinea pig\n\n### 7. **HIGH VOLATILITY ENVIRONMENT**\n- ADX=31.68 (strong trend strength)\n- Vol Ratio=1.49 (elevated volatility)\n- **Should be reducing position size by 50% per your rules**\n- Instead you're considering full position in choppy conditions\n\n### 8. **NEWS VACUUM = UNKNOWN CATALYSTS**\n- Zero news articles in 12 hours\n- Neutral sentiment means no fundamental support\n- Could be setting up for surprise negative catalyst\n- BTC moves on sentiment \u2014 and there's none\n\n## \ud83c\udfaf ALTERNATIVE STRATEGY: WAIT OR SHORT\n\n**If you MUST trade:**\n1. **Wait for 68,500+ to short the rejection** (better R:R)\n2. **Or wait for clean break of 65,000 support to buy** (trend confirmation)\n3. **Current level is no-man's land** \u2014 worst place to enter\n\n**Better yet: PRESERVE CAPITAL**\n- Demo account or not, build good habits\n- Missing one trade won't kill you\n- Bad habits at $500 will destroy you at $50,000\n\n## \u26a1 FINAL VERDICT\nThis setup violates multiple core rules:\n- Counter-trend in confirmed downtrend\n- Low-conviction signals in high-vol environment  \n- Poor entry timing in low liquidity\n- Excessive spread burden on micro account\n\n**The market will be here tomorrow. Your capital might not be.**\n\n\ud83d\udd34 **STRONG SELL/AVOID \u2014 2/10 Setup Quality**",
+    "judge_raw": "{\n    \"decision\": \"HOLD\",\n    \"confidence\": 4,\n    \"entry_price\": null,\n    \"stop_loss\": null,\n    \"take_profit\": null,\n    \"lot_size\": null,\n    \"reasoning\": \"This is a classic example of conflicting signals creating a trap setup. While the ML ensemble shows 70% confidence for UP, the market regime clearly states TRENDING_DOWN with strategy 'sell rallies to EMA.' The Bear agent correctly identifies this as a counter-trend trade against the established regime. Additionally, the 18-pip spread is devastating for a $500 account - requiring 36+ pips just to breakeven. The timing during Asian low-liquidity session (00:14:06) with elevated volatility (Vol Ratio 1.49) compounds the risks. The ML confidence levels are marginal (59% LSTM, 52% XGBoost) and we have zero historical pattern validation. This violates the core principle of capital preservation - better to wait for a cleaner, regime-aligned setup than force a trade in no-man's land at $67K resistance.\",\n    \"bull_strength\": \"MODERATE\",\n    \"bear_strength\": \"STRONG\",\n    \"pre_mortem\": \"If I took the long trade, it would likely fail due to: 1) Immediate 18-pip spread hit creating psychological pressure, 2) Rejection at $67K psychological resistance level with institutions selling, 3) Low liquidity allowing algos to hunt stops during Asian session, 4) Counter-trend nature conflicting with the TRENDING_DOWN regime causing quick reversal.\",\n    \"key_risks\": [\"18-pip spread burden on micro account\", \"Counter-trend trade against TRENDING_DOWN regime\", \"Low liquidity Asian session timing\", \"$67K major resistance level\"],\n    \"what_changes_mind\": \"Would need either: 1) Clear break above $67,500 with volume confirmation and regime change signal, 2) ML confidence above 80% with tighter spreads, 3) Fundamental catalyst creating new bullish sentiment, or 4) Wait for regime to shift from TRENDING_DOWN to TRENDING_UP\"\n}"
   },
   "verdict": {
     "decision": "HOLD",
@@ -105,27 +105,27 @@
     "stop_loss": null,
     "take_profit": null,
     "lot_size": null,
-    "reasoning": "This is a classic case where conflicting signals create too much uncertainty for profitable trading. The ML ensemble shows 70% UP confidence, but this is undermined by several critical factors: 1) Market regime clearly indicates TRENDING_DOWN with strategy to sell rallies - we'd be fighting the established trend, 2) The 18-pip spread on a $200 account is devastating - requiring 36+ pips just for minimal profit, 3) Sunday night timing provides poor liquidity and higher risk of gaps/whipsaws, 4) ML confidence levels (60% LSTM, 52% XGBoost) are marginal at best for BTC's inherent volatility. With high volatility (1.59x normal), I should reduce position size by 50% per rules, but even then the risk/reward doesn't justify entry. The regime mismatch is the killer - buying into a downtrending market on weak signals violates sound trading principles.",
+    "reasoning": "This is a classic example of conflicting signals creating a trap setup. While the ML ensemble shows 70% confidence for UP, the market regime clearly states TRENDING_DOWN with strategy 'sell rallies to EMA.' The Bear agent correctly identifies this as a counter-trend trade against the established regime. Additionally, the 18-pip spread is devastating for a $500 account - requiring 36+ pips just to breakeven. The timing during Asian low-liquidity session (00:14:06) with elevated volatility (Vol Ratio 1.49) compounds the risks. The ML confidence levels are marginal (59% LSTM, 52% XGBoost) and we have zero historical pattern validation. This violates the core principle of capital preservation - better to wait for a cleaner, regime-aligned setup than force a trade in no-man's land at $67K resistance.",
     "bull_strength": "MODERATE",
     "bear_strength": "STRONG",
-    "pre_mortem": "If I had taken this trade, it would likely fail because: 1) The downtrend would reassert itself after this brief uptick, 2) The wide spread would eat into profits immediately, 3) Weekend gaps or Asia open could trigger stops on thin liquidity, 4) Without news catalyst, any ML-driven move would likely be short-lived noise rather than sustainable trend change.",
+    "pre_mortem": "If I took the long trade, it would likely fail due to: 1) Immediate 18-pip spread hit creating psychological pressure, 2) Rejection at $67K psychological resistance level with institutions selling, 3) Low liquidity allowing algos to hunt stops during Asian session, 4) Counter-trend nature conflicting with the TRENDING_DOWN regime causing quick reversal.",
     "key_risks": [
-      "Fighting established downtrend regime",
-      "Prohibitive 18-pip spread on small account",
-      "Weekend/overnight gap risk with thin liquidity",
-      "Marginal ML confidence insufficient for BTC volatility"
+      "18-pip spread burden on micro account",
+      "Counter-trend trade against TRENDING_DOWN regime",
+      "Low liquidity Asian session timing",
+      "$67K major resistance level"
     ],
-    "what_changes_mind": "Would need to see: 1) Market regime shift to TRENDING_UP or clear reversal pattern, 2) ML confidence above 80% with stronger model agreement, 3) Fundamental news catalyst supporting upward move, 4) Better timing during high liquidity hours, 5) Tighter spreads"
+    "what_changes_mind": "Would need either: 1) Clear break above $67,500 with volume confirmation and regime change signal, 2) ML confidence above 80% with tighter spreads, 3) Fundamental catalyst creating new bullish sentiment, or 4) Wait for regime to shift from TRENDING_DOWN to TRENDING_UP"
   },
   "aegis": {
-    "score": 50.6,
+    "score": 54.0,
     "level": "RED",
     "label": "No Trade \u274c",
     "can_trade": false,
     "components": {
       "ml_confidence": 21.0,
       "sentiment": 7.5,
-      "regime_fit": 6.6,
+      "regime_fit": 10.0,
       "claude_verdict": 8.0,
       "pattern_match": 7.5
     }

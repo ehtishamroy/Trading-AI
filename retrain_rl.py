@@ -8,6 +8,7 @@ import sys
 import pandas as pd
 from pathlib import Path
 from loguru import logger
+from typing import Callable
 
 # Suppress TensorFlow/PyTorch warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -58,10 +59,32 @@ def train_rl_agent(market: str = "BTCUSD", total_timesteps: int = 100000, df: pd
     train_env = make_vec_env(lambda: TradingEnv(train_df), n_envs=4)
     val_env = make_vec_env(lambda: TradingEnv(val_df), n_envs=1)
 
-    # Initialize PPO Agent
-    model = PPO("MlpPolicy", train_env, verbose=1, tensorboard_log="./logs/rl_tensorboard/")
+    def linear_schedule(initial_value: float) -> Callable[[float], float]:
+        def func(progress_remaining: float) -> float:
+            return progress_remaining * initial_value
+        return func
 
-    # Train
+    # Deep Neural Network for Policy and Value Function
+    policy_kwargs = dict(
+        net_arch=dict(pi=[256, 256, 128], vf=[256, 256, 128])
+    )
+
+    # Initialize Advanced PPO Agent with Entropy Bonus
+    model = PPO(
+        "MlpPolicy", 
+        train_env, 
+        learning_rate=linear_schedule(0.0003),
+        n_steps=2048,
+        batch_size=128,
+        n_epochs=10,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        ent_coef=0.01,  # Forces agent to explore trades instead of just holding forever
+        policy_kwargs=policy_kwargs,
+        verbose=1, 
+        tensorboard_log="./logs/rl_tensorboard/"
+    )  # Train
     logger.info(f"Training PPO for {total_timesteps} timesteps...")
     model.learn(total_timesteps=total_timesteps)
 

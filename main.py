@@ -110,8 +110,20 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         rl_model_path = Path(f"models/saved/ppo_{market}.zip")
         if rl_model_path.exists():
             # Get latest observation (exclude time/close/unscaled)
+            import numpy as np
+            window_size = 5
             obs_cols = [c for c in df_features.columns if c not in ['time', 'open', 'high', 'low', 'close', 'volume'] and not df_features[c].dtype == "object"]
-            obs = df_features.iloc[-1][obs_cols].values.astype(float)
+            
+            # Get last 5 rows (Frame Stacking)
+            obs_window = df_features.iloc[-window_size:][obs_cols].values.astype(np.float32)
+            
+            # We ask the RL model: "Assume we are flat, what should we do?"
+            additional_states = np.array([0, 0.0], dtype=np.float32)  # Position=0, PnL=0
+            add_window = np.tile(additional_states, (window_size, 1))
+            
+            # Flatten to exactly match the TradingEnv observation space
+            full_obs = np.concatenate((obs_window, add_window), axis=1)
+            obs = full_obs.flatten().astype(np.float32)
             
             rl_model = PPO.load(str(rl_model_path))
             action, _states = rl_model.predict(obs, deterministic=True)
