@@ -350,8 +350,8 @@ def _get_ml_signals(market: str, df: object, feature_cols: list) -> tuple:
             lstm_signal = predict(model, latest_seq)
         else:
             lstm_signal = {"direction": "neutral", "confidence": 0.5}
-    except FileNotFoundError:
-        logger.warning(f"No LSTM model for {market} — using placeholder")
+    except Exception as e:
+        logger.warning(f"LSTM model unavailable for {market} — using placeholder: {e}")
         lstm_signal = {"direction": "neutral", "confidence": 0.5}
 
     try:
@@ -359,8 +359,8 @@ def _get_ml_signals(market: str, df: object, feature_cols: list) -> tuple:
         model = load_xgboost_model(market)
         latest_features = df[feature_cols].values[-1]
         xgb_signal = predict_xgboost(model, latest_features)
-    except FileNotFoundError:
-        logger.warning(f"No XGBoost model for {market} — using placeholder")
+    except Exception as e:
+        logger.warning(f"XGBoost model unavailable for {market} — using placeholder: {e}")
         xgb_signal = {"direction": "neutral", "confidence": 0.5}
 
     return lstm_signal, xgb_signal
