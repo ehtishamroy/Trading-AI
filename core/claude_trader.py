@@ -183,8 +183,8 @@ You MUST respond in this exact JSON format and NOTHING else — no markdown, no 
             user=judge_context
         )
 
-        # Parse Judge's JSON response
-        verdict = self._parse_verdict(judge_response)
+        # Parse Judge's JSON response (with retry on failure)
+        verdict = self._parse_verdict(judge_response, retry_context=judge_context)
 
         result = {
             "verdict": verdict,
@@ -283,29 +283,57 @@ Respond ONLY with JSON (no markdown, no explanation):
             logger.error(f"Ollama API error: {e}")
             return f"Error: {e}"
 
-    def _parse_verdict(self, response: str) -> dict:
-        """Parse Judge's JSON response, handling markdown code blocks."""
+    def _parse_verdict(self, response: str, retry_context: str = None) -> dict:
+        """Parse Judge's JSON response, handling markdown code blocks.
+        If parsing fails and retry_context is provided, re-prompts Ollama once."""
+        result = self._try_parse_json(response)
+        if result is not None:
+            return result
+
+        logger.warning("Could not parse Judge's response as JSON — retrying with stricter prompt")
+
+        # Retry once with a stricter prompt if Ollama is available
+        if self.available and retry_context:
+            retry_response = self._call_ollama(
+                system="You are a JSON formatter. Respond ONLY with valid JSON. No markdown, no explanation, no code fences.",
+                user=(
+                    f"Convert this trading verdict into the exact JSON format below. "
+                    f"Output ONLY the JSON object, nothing else.\n\n"
+                    f"Required format: {{\"decision\": \"BUY/SELL/HOLD\", \"confidence\": 1-10, "
+                    f"\"entry_price\": number, \"stop_loss\": number, \"take_profit\": number, "
+                    f"\"lot_size\": 0.01, \"reasoning\": \"text\"}}\n\n"
+                    f"Text to convert:\n{response[:1500]}"
+                )
+            )
+            result = self._try_parse_json(retry_response)
+            if result is not None:
+                logger.info("Successfully parsed verdict on retry")
+                return result
+
+        logger.warning("Verdict parse failed after retry — defaulting to HOLD")
+        return {
+            "decision": "HOLD",
+            "confidence": 0,
+            "reasoning": response,
+            "error": "Failed to parse JSON response"
+        }
+
+    @staticmethod
+    def _try_parse_json(response: str) -> dict | None:
+        """Attempt to extract and parse JSON from a response string."""
         try:
             text = response.strip()
-            # Strip common markdown wrappers
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
-            # Find first { ... } block if there's extra text
             if "{" in text and "}" in text:
                 start = text.index("{")
                 end = text.rindex("}") + 1
                 text = text[start:end]
             return json.loads(text)
         except (json.JSONDecodeError, IndexError, ValueError):
-            logger.warning("Could not parse Judge's response as JSON")
-            return {
-                "decision": "HOLD",
-                "confidence": 0,
-                "reasoning": response,
-                "error": "Failed to parse JSON response"
-            }
+            return None
 
     def _mock_response(self) -> dict:
         """Return mock response when Ollama is not available."""

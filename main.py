@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config.settings import (
     ACTIVE_MARKET, MARKETS, ENTRY_TIMEFRAME, TREND_TIMEFRAME,
     TRADING_MODE, MIN_SIGNAL_CONFIDENCE, CLAUDE_MIN_CONFIDENCE,
-    AEGIS_NO_TRADE, AEGIS_WEIGHTS,
+    AEGIS_NO_TRADE, AEGIS_WEIGHTS, PROJECT_ROOT, LOGS_DIR,
 )
 from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order
 from data.features import compute_all_features, get_feature_columns, normalize_features
@@ -29,7 +29,7 @@ from core.self_learning import TradingJournal
 
 
 # ─── Setup ────────────────────────────────────────────────
-logger.add("logs/trading_{time}.log", rotation="1 day", retention="30 days")
+logger.add(str(LOGS_DIR / "trading_{time}.log"), rotation="1 day", retention="30 days")
 
 # Initialize all components
 risk = RiskManager()
@@ -108,20 +108,19 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     try:
         from pathlib import Path
         from stable_baselines3 import PPO
+        from models.rl_env import RL_WINDOW_SIZE, RL_ADDITIONAL_STATES, RL_EXCLUDED_COLS
         rl_model_path = Path(f"models/saved/ppo_{market}.zip")
         if rl_model_path.exists():
-            # Get latest observation (exclude time/close/unscaled)
             import numpy as np
-            window_size = 5
-            obs_cols = [c for c in df_features.columns if c not in ['time', 'open', 'high', 'low', 'close', 'volume'] and not df_features[c].dtype == "object"]
-            
-            # Get last 5 rows (Frame Stacking)
-            obs_window = df_features.iloc[-window_size:][obs_cols].values.astype(np.float32)
-            
-            # We ask the RL model: "Assume we are flat, what should we do?"
-            additional_states = np.array([0, 0.0], dtype=np.float32)  # Position=0, PnL=0
-            add_window = np.tile(additional_states, (window_size, 1))
-            
+            obs_cols = [c for c in df_features.columns if c not in RL_EXCLUDED_COLS and df_features[c].dtype != "object"]
+
+            # Get last N rows (Frame Stacking) — uses shared constant
+            obs_window = df_features.iloc[-RL_WINDOW_SIZE:][obs_cols].values.astype(np.float32)
+
+            # Assume flat position: [position=0, unrealized_pnl=0]
+            additional_states = np.zeros(RL_ADDITIONAL_STATES, dtype=np.float32)
+            add_window = np.tile(additional_states, (RL_WINDOW_SIZE, 1))
+
             # Flatten to exactly match the TradingEnv observation space
             full_obs = np.concatenate((obs_window, add_window), axis=1)
             obs = full_obs.flatten().astype(np.float32)
@@ -153,12 +152,15 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     if regime_advice["bias"] == "CAUTIOUS":
         regime_fit *= 0.5
 
+    # Load actual pattern win rate from journal history (0.5 fallback if no data)
+    pattern_win_rate = journal.get_pattern_stats(market, regime["regime"], signal_dir)
+
     w = AEGIS_WEIGHTS
     pre_score = round((
         ensemble["confidence"] * w["ml_confidence"] +
         sentiment_alignment * w["sentiment"] +
         regime_fit * w["regime_fit"] +
-        0.5 * w["pattern_match"]
+        pattern_win_rate * w["pattern_match"]
     ) * 100, 1)
 
     # Claude's max contribution is now 10 pts (0.10 weight * 100). Only call if pre_score + 10 > AEGIS_NO_TRADE
@@ -204,7 +206,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         sentiment_alignment=sentiment_alignment,
         regime_fit=regime_fit,
         claude_confidence=verdict.get("confidence", 0),
-        pattern_match=0.5,
+        pattern_match=pattern_win_rate,
     )
 
     # ── Step 10: Risk check ──────────────────────────────
@@ -364,6 +366,65 @@ def _get_ml_signals(market: str, df: object, feature_cols: list) -> tuple:
     return lstm_signal, xgb_signal
 
 
+def run_preflight_checks() -> bool:
+    """
+    Startup pre-flight checks — verify all systems before entering trading loop.
+    Returns True if all critical checks pass.
+    """
+    logger.info("Running pre-flight health checks...")
+    all_ok = True
+
+    # 1. Verify MT5 connection
+    if not connect_mt5():
+        logger.error("PREFLIGHT FAIL: Cannot connect to MT5")
+        return False
+    logger.info("  [OK] MT5 connection")
+
+    # 2. Verify Ollama is running
+    try:
+        import requests
+        from config.settings import OLLAMA_BASE_URL
+        resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
+        if resp.status_code == 200:
+            logger.info("  [OK] Ollama reachable")
+        else:
+            logger.warning("  [WARN] Ollama returned non-200 — LLM debate may fail")
+    except Exception:
+        logger.warning("  [WARN] Ollama not reachable — LLM debate will be skipped")
+
+    # 3. Verify saved models exist and load
+    from config.settings import MODELS_DIR
+    from data.features import get_feature_columns
+    feature_cols = get_feature_columns()
+
+    for model_type, ext in [("lstm", "pt"), ("xgboost", "pkl")]:
+        model_path = MODELS_DIR / f"{model_type}_{ACTIVE_MARKET}.{ext}"
+        if model_path.exists():
+            try:
+                if model_type == "lstm":
+                    from models.lstm_model import load_lstm_model
+                    m = load_lstm_model(ACTIVE_MARKET, len(feature_cols))
+                else:
+                    from models.xgboost_model import load_xgboost_model
+                    m = load_xgboost_model(ACTIVE_MARKET)
+                    # Verify feature count matches
+                    if hasattr(m, "n_features_in_") and m.n_features_in_ != len(feature_cols):
+                        logger.warning(
+                            f"  [WARN] XGBoost expects {m.n_features_in_} features "
+                            f"but feature pipeline produces {len(feature_cols)}"
+                        )
+                        all_ok = False
+                logger.info(f"  [OK] {model_type.upper()} model loaded")
+            except Exception as e:
+                logger.warning(f"  [WARN] {model_type.upper()} model load failed: {e}")
+        else:
+            logger.warning(f"  [WARN] No {model_type.upper()} model for {ACTIVE_MARKET} — run train.py first")
+
+    status = "ALL SYSTEMS GO" if all_ok else "SOME WARNINGS — proceeding with caution"
+    logger.info(f"Pre-flight: {status}")
+    return True  # Only return False for critical failures (MT5)
+
+
 def run_trading_loop():
     """
     Main trading loop — runs every 15 minutes aligned with candle close.
@@ -373,8 +434,8 @@ def run_trading_loop():
     logger.info(f"Market: {ACTIVE_MARKET}")
     logger.info(f"Timeframe: {ENTRY_TIMEFRAME}")
 
-    if not connect_mt5():
-        logger.error("❌ Cannot connect to MT5. Exiting.")
+    if not run_preflight_checks():
+        logger.error("❌ Pre-flight checks failed. Exiting.")
         return
 
     # Run analysis immediately

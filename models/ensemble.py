@@ -6,6 +6,12 @@ into a single unified signal, ready for Claude's reasoning.
 import numpy as np
 from loguru import logger
 
+try:
+    from config.settings import ENSEMBLE_LSTM_WEIGHT, ENSEMBLE_XGBOOST_WEIGHT
+except ImportError:
+    ENSEMBLE_LSTM_WEIGHT = 0.55
+    ENSEMBLE_XGBOOST_WEIGHT = 0.45
+
 
 def combine_signals(lstm_signal: dict, xgb_signal: dict, regime: dict) -> dict:
     """
@@ -27,13 +33,23 @@ def combine_signals(lstm_signal: dict, xgb_signal: dict, regime: dict) -> dict:
             details: {lstm details, xgb details, regime}
         }
     """
+    # Validate inputs
+    for name, sig in [("lstm", lstm_signal), ("xgboost", xgb_signal)]:
+        conf = sig.get("confidence", 0)
+        if not (0.0 <= conf <= 1.0):
+            logger.warning(f"{name} confidence {conf} out of [0,1] — clamping")
+            sig["confidence"] = max(0.0, min(1.0, conf))
+        if sig.get("direction") not in ("up", "down", "neutral"):
+            logger.warning(f"{name} direction '{sig.get('direction')}' invalid — defaulting to neutral")
+            sig["direction"] = "neutral"
+
     # Convert directions to numeric: up = +1, down = -1
     lstm_vote = (1 if lstm_signal["direction"] == "up" else -1) * lstm_signal["confidence"]
     xgb_vote = (1 if xgb_signal["direction"] == "up" else -1) * xgb_signal["confidence"]
 
-    # Weighted average (LSTM: 55%, XGBoost: 45%)
-    # LSTM gets slightly more weight because it captures time patterns
-    combined_score = (lstm_vote * 0.55) + (xgb_vote * 0.45)
+    # Weighted average — configurable via ENSEMBLE_LSTM_WEIGHT / ENSEMBLE_XGBOOST_WEIGHT
+    # LSTM gets slightly more weight by default because it captures temporal patterns
+    combined_score = (lstm_vote * ENSEMBLE_LSTM_WEIGHT) + (xgb_vote * ENSEMBLE_XGBOOST_WEIGHT)
 
     # Direction
     if abs(combined_score) < 0.1:

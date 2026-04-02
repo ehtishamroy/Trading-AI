@@ -31,6 +31,26 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ─── Dashboard Authentication ────────────────────────────
+DASHBOARD_PASSWORD_HASH = os.environ.get("DASHBOARD_PASSWORD_HASH", "")
+
+if DASHBOARD_PASSWORD_HASH:
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if not st.session_state.authenticated:
+        st.title("🔒 ML Trading Dashboard")
+        password = st.text_input("Enter dashboard password:", type="password")
+        if password:
+            import hashlib
+            entered_hash = hashlib.sha256(password.encode()).hexdigest()
+            if entered_hash == DASHBOARD_PASSWORD_HASH:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Incorrect password.")
+        st.stop()
+
 # ─── Persistent State ─────────────────────────────────
 STATE_FILE = LOGS_DIR / "dashboard_state.json"
 

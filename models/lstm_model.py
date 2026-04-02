@@ -178,11 +178,17 @@ def train_lstm(X_train, y_train, X_val, y_val, input_size: int,
     return model
 
 
-def save_lstm_model(model: TradingLSTM, market: str):
-    """Save trained model weights."""
+def save_lstm_model(model: TradingLSTM, market: str, metadata: dict = None):
+    """Save trained model weights and optional metadata."""
     path = MODELS_DIR / f"lstm_{market}.pt"
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), path)
+    if metadata:
+        import json
+        meta_path = MODELS_DIR / f"lstm_{market}_metadata.json"
+        with open(meta_path, "w") as f:
+            json.dump(metadata, f, indent=2, default=str)
+        logger.info(f"Model metadata saved → {meta_path}")
     logger.info(f"Model saved → {path}")
 
 
@@ -210,6 +216,17 @@ def predict(model: TradingLSTM, X: np.ndarray) -> dict:
     Returns:
         {direction: 'up'/'down', confidence: 0.0-1.0}
     """
+    # Validate input shape
+    if X.ndim != 2:
+        raise ValueError(f"LSTM input must be 2D (seq_len, features), got shape {X.shape}")
+    if X.shape[0] != LSTM_SEQUENCE_LEN:
+        raise ValueError(
+            f"LSTM expects sequence length {LSTM_SEQUENCE_LEN}, got {X.shape[0]}"
+        )
+    if np.isnan(X).any():
+        logger.warning("NaN values detected in LSTM input — replacing with 0")
+        X = np.nan_to_num(X, nan=0.0)
+
     model.eval()
     with torch.no_grad():
         x_tensor = torch.FloatTensor(X).unsqueeze(0)  # Add batch dimension

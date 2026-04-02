@@ -26,12 +26,15 @@ TIMEFRAMES = {
 }
 
 
-def connect_mt5() -> bool:
+def connect_mt5(timeout_ms: int = 10000) -> bool:
     """
     Initialize and login to MT5.
     MT5 terminal must be installed and running on your PC.
+
+    Args:
+        timeout_ms: Connection timeout in milliseconds (default 10s)
     """
-    if not mt5.initialize():
+    if not mt5.initialize(timeout=timeout_ms):
         logger.error(f"MT5 initialize failed: {mt5.last_error()}")
         return False
 

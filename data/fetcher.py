@@ -14,6 +14,53 @@ from config.settings import DATA_DIR, MARKETS, ENTRY_TIMEFRAME, TREND_TIMEFRAME
 from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv
 
 
+def validate_ohlcv(df: pd.DataFrame, symbol: str = "", timeframe: str = "") -> pd.DataFrame:
+    """
+    Validate OHLCV data quality after fetching.
+    Logs warnings for issues and cleans where possible.
+    """
+    if df.empty:
+        return df
+
+    label = f"{symbol} {timeframe}" if symbol else "data"
+    issues = []
+
+    # Check for null values
+    null_counts = df[["open", "high", "low", "close", "volume"]].isnull().sum()
+    total_nulls = null_counts.sum()
+    if total_nulls > 0:
+        issues.append(f"{total_nulls} null values in OHLCV columns")
+        df = df.dropna(subset=["open", "high", "low", "close"])
+
+    # Check for duplicates
+    dup_count = df.index.duplicated().sum()
+    if dup_count > 0:
+        issues.append(f"{dup_count} duplicate timestamps")
+        df = df[~df.index.duplicated(keep="last")]
+
+    # Check for time gaps (missing bars)
+    if len(df) > 1:
+        diffs = df.index.to_series().diff().dropna()
+        median_diff = diffs.median()
+        # A gap is >2x the median interval
+        gaps = diffs[diffs > median_diff * 2]
+        if len(gaps) > 0:
+            issues.append(f"{len(gaps)} time gaps detected (>{median_diff * 2})")
+
+    # Check for price anomalies (high < low)
+    bad_bars = df[df["high"] < df["low"]]
+    if len(bad_bars) > 0:
+        issues.append(f"{len(bad_bars)} bars with high < low")
+
+    if issues:
+        for issue in issues:
+            logger.warning(f"Data quality [{label}]: {issue}")
+    else:
+        logger.info(f"Data validation [{label}]: all checks passed")
+
+    return df
+
+
 def fetch_and_save(
     symbol: str,
     timeframe: str,
@@ -27,6 +74,9 @@ def fetch_and_save(
     if df.empty:
         logger.error(f"No data fetched for {symbol} {timeframe}")
         return df
+
+    # Validate data quality
+    df = validate_ohlcv(df, symbol, timeframe)
 
     # Save to parquet
     filename = f"{symbol}_{timeframe}.parquet"
