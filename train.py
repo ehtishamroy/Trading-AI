@@ -45,7 +45,8 @@ def train_market(market: str):
 
     # ── Step 2: Feature engineering ──────────────────────
     logger.info("Computing features...")
-    df = compute_all_features(df)
+    market_type = MARKETS[market].get("type", "forex")
+    df = compute_all_features(df, market_type=market_type)
     feature_cols = get_feature_columns()
     df = normalize_features(df, feature_cols)
 

@@ -91,7 +91,8 @@ def retrain_market(market: str) -> dict:
         return {"deployed": False, "reason": "No data available"}
 
     # Feature engineering
-    df = compute_all_features(df)
+    market_type = MARKETS[market].get("type", "forex")
+    df = compute_all_features(df, market_type=market_type)
     feature_cols = get_feature_columns()
     df = normalize_features(df, feature_cols)
 

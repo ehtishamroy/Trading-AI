@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config.settings import (
     ACTIVE_MARKET, MARKETS, ENTRY_TIMEFRAME, TREND_TIMEFRAME,
     TRADING_MODE, MIN_SIGNAL_CONFIDENCE, CLAUDE_MIN_CONFIDENCE,
-    AEGIS_NO_TRADE,
+    AEGIS_NO_TRADE, AEGIS_WEIGHTS,
 )
 from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order
 from data.features import compute_all_features, get_feature_columns, normalize_features
@@ -74,7 +74,8 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
 
     # ── Step 2: Compute features ─────────────────────────
     logger.info("Step 2: Computing features...")
-    df_features = compute_all_features(df_15m)
+    market_type = MARKETS[market].get("type", "forex")
+    df_features = compute_all_features(df_15m, market_type=market_type)
     feature_cols = get_feature_columns()
     df_norm = normalize_features(df_features, feature_cols)
 
@@ -152,7 +153,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     if regime_advice["bias"] == "CAUTIOUS":
         regime_fit *= 0.5
 
-    w = {"ml_confidence": 0.30, "sentiment": 0.15, "regime_fit": 0.20, "pattern_match": 0.15}
+    w = AEGIS_WEIGHTS
     pre_score = round((
         ensemble["confidence"] * w["ml_confidence"] +
         sentiment_alignment * w["sentiment"] +
@@ -160,9 +161,9 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         0.5 * w["pattern_match"]
     ) * 100, 1)
 
-    # Claude's max contribution is 20 pts. Only call if pre_score + 20 > AEGIS_NO_TRADE
-    from config.settings import AEGIS_NO_TRADE
-    claude_call_threshold = AEGIS_NO_TRADE - 20  # e.g. 55 - 20 = 35
+    # Claude's max contribution is now 10 pts (0.10 weight * 100). Only call if pre_score + 10 > AEGIS_NO_TRADE
+    claude_max_pts = int(w["claude_verdict"] * 100)
+    claude_call_threshold = AEGIS_NO_TRADE - claude_max_pts
 
     # ── Step 8: Claude Multi-Agent Debate ────────────────
     if pre_score < claude_call_threshold:
