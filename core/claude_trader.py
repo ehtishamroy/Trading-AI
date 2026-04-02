@@ -350,7 +350,7 @@ Respond ONLY with JSON (no markdown, no explanation):
             "bear_case": "N/A — Ollama not running",
         }
 
-
+    
 def build_market_context(
     market: str,
     current_price: dict,
