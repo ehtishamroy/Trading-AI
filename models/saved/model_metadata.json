@@ -2,25 +2,25 @@
   "EURUSD": {
     "lstm": {
       "market": "EURUSD",
-      "trained_at": "2026-04-02T20:39:55.228556",
+      "trained_at": "2026-04-02T20:56:51.180155",
       "feature_count": 68,
-      "data_range": "2024-03-29 04:00:00 to 2026-04-02 12:30:00",
+      "data_range": "2024-03-29 04:15:00 to 2026-04-02 12:45:00",
       "train_rows": 34848,
       "val_rows": 7464,
       "test_rows": 7469,
       "model_name": "lstm_EURUSD",
-      "test_accuracy": 0.5127032995223999
+      "test_accuracy": 0.5137787461280823
     },
     "xgboost": {
       "market": "EURUSD",
-      "trained_at": "2026-04-02T20:39:55.228556",
+      "trained_at": "2026-04-02T20:56:51.180155",
       "feature_count": 68,
-      "data_range": "2024-03-29 04:00:00 to 2026-04-02 12:30:00",
+      "data_range": "2024-03-29 04:15:00 to 2026-04-02 12:45:00",
       "train_rows": 34848,
       "val_rows": 7464,
       "test_rows": 7469,
       "model_name": "xgboost_EURUSD",
-      "test_accuracy": 0.5213549337260678
+      "test_accuracy": 0.5078323738117553
     }
   }
 }
