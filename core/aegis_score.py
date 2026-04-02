@@ -34,6 +34,9 @@ def calculate_aegis_score(
     w = AEGIS_WEIGHTS
 
     # Normalize Claude confidence to 0-1 scale
+    if claude_confidence is None:
+        claude_confidence = 0
+        
     claude_norm = claude_confidence / 10.0
 
     # Calculate weighted score
