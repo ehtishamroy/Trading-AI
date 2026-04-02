@@ -87,7 +87,7 @@ CLAUDE_MODEL = OLLAMA_MODEL
 CLAUDE_MAX_TOKENS = OLLAMA_MAX_TOKENS
 
 # ─── ML TRAINING ──────────────────────────────────────────
-LSTM_SEQUENCE_LEN = 60                # 60 candles lookback
+LSTM_SEQUENCE_LEN = 30                # 60 candles lookback
 LSTM_HIDDEN_SIZE = 128
 LSTM_NUM_LAYERS = 2
 LSTM_DROPOUT = 0.2

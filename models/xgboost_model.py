@@ -38,7 +38,6 @@ def train_xgboost(
         learning_rate=XGBOOST_LEARNING_RATE,
         objective="binary:logistic",
         eval_metric="logloss",
-        use_label_encoder=False,
         tree_method="hist",         # Fast on both CPU and GPU
         subsample=0.8,
         colsample_bytree=0.8,
