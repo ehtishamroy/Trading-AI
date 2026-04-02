@@ -241,5 +241,12 @@ def normalize_features(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
             roll_mean = df[col].rolling(200, min_periods=50).mean()
             roll_std  = df[col].rolling(200, min_periods=50).std()
             df_norm[col] = (df[col] - roll_mean) / (roll_std + eps)
+
+    # Safety net: fill any remaining NaN values after normalization
+    nan_count = df_norm[feature_cols].isna().sum().sum()
+    if nan_count > 0:
+        logger.warning(f"Found {nan_count} NaN values after normalization — forward-filling then zero-filling")
+        df_norm[feature_cols] = df_norm[feature_cols].ffill().fillna(0)
+
     df_norm.dropna(inplace=True)
     return df_norm

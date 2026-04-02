@@ -82,8 +82,29 @@ def score_sentiment(text: str) -> float:
     ]
 
     text_lower = text.lower()
-    bull = sum(1 for w in bullish if w in text_lower)
-    bear = sum(1 for w in bearish if w in text_lower)
+    words = text_lower.split()
+    negations = {"not", "no", "don't", "won't", "isn't", "aren't", "doesn't", "didn't", "never"}
+
+    bull = 0
+    bear = 0
+    for keyword in bullish:
+        kw_words = keyword.split()
+        for i in range(len(words) - len(kw_words) + 1):
+            if words[i:i + len(kw_words)] == kw_words:
+                # Check if preceded by a negation word
+                if i > 0 and words[i - 1] in negations:
+                    bear += 1  # Negated bullish = bearish
+                else:
+                    bull += 1
+    for keyword in bearish:
+        kw_words = keyword.split()
+        for i in range(len(words) - len(kw_words) + 1):
+            if words[i:i + len(kw_words)] == kw_words:
+                if i > 0 and words[i - 1] in negations:
+                    bull += 1  # Negated bearish = bullish
+                else:
+                    bear += 1
+
     total = bull + bear
     if total == 0:
         return 0.0

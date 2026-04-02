@@ -66,11 +66,17 @@ def train_xgboost(
     return model
 
 
-def save_xgboost_model(model: xgb.XGBClassifier, market: str):
-    """Save trained model."""
+def save_xgboost_model(model: xgb.XGBClassifier, market: str, metadata: dict = None):
+    """Save trained model and optional metadata."""
     path = MODELS_DIR / f"xgboost_{market}.pkl"
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, path)
+    if metadata:
+        import json
+        meta_path = MODELS_DIR / f"xgboost_{market}_metadata.json"
+        with open(meta_path, "w") as f:
+            json.dump(metadata, f, indent=2, default=str)
+        logger.info(f"Model metadata saved → {meta_path}")
     logger.info(f"XGBoost saved → {path}")
 
 
@@ -91,6 +97,16 @@ def predict_xgboost(model: xgb.XGBClassifier, X: np.ndarray) -> dict:
     Returns:
         {direction: 'up'/'down', confidence: 0.0-1.0, feature_importance: top 5}
     """
+    # Validate feature count matches trained model
+    expected_features = model.n_features_in_
+    if X.shape[-1] != expected_features:
+        raise ValueError(
+            f"XGBoost expects {expected_features} features, got {X.shape[-1]}"
+        )
+    if np.isnan(X).any():
+        logger.warning("NaN values detected in XGBoost input — replacing with 0")
+        X = np.nan_to_num(X, nan=0.0)
+
     proba = model.predict_proba(X.reshape(1, -1))[0]
     direction = "up" if proba[1] > 0.5 else "down"
     confidence = max(proba)

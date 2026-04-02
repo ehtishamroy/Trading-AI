@@ -10,6 +10,17 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
+# Shared constants for observation construction
+RL_WINDOW_SIZE = 5
+RL_ADDITIONAL_STATES = 2  # [position, unrealized_pnl]
+RL_EXCLUDED_COLS = {'time', 'open', 'high', 'low', 'close', 'volume'}
+
+
+def get_rl_feature_cols(df_columns):
+    """Get RL feature columns from a DataFrame, excluding raw price/time columns."""
+    return [c for c in df_columns if c not in RL_EXCLUDED_COLS and not hasattr(df_columns, 'dtype') or True]
+
+
 class TradingEnv(gym.Env):
     """
     OpenAI Gym environment for trading.
@@ -19,7 +30,7 @@ class TradingEnv(gym.Env):
     """
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, df: pd.DataFrame, initial_balance: float = 500.0, transaction_cost: float = 0.0001, window_size: int = 5):
+    def __init__(self, df: pd.DataFrame, initial_balance: float = 500.0, transaction_cost: float = 0.0001, window_size: int = RL_WINDOW_SIZE):
         super(TradingEnv, self).__init__()
         
         self.df = df.reset_index(drop=True)
@@ -34,7 +45,7 @@ class TradingEnv(gym.Env):
         self.action_space = spaces.Discrete(3)
         
         # Observation Space: The current indicators + Position state + Unrealized PnL (stacked over window_size)
-        self.obs_shape = (len(self.feature_cols) + 2) * self.window_size
+        self.obs_shape = (len(self.feature_cols) + RL_ADDITIONAL_STATES) * self.window_size
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, 
             shape=(self.obs_shape,), 

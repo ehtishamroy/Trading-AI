@@ -82,6 +82,7 @@ def train_market(market: str):
     X_train_seq, y_train_seq = create_sequences(df_train, feature_cols)
     X_val_seq, y_val_seq = create_sequences(df_val, feature_cols)
 
+    lstm_test_acc = None
     if len(X_train_seq) > 0:
         lstm_model = train_lstm(
             X_train_seq, y_train_seq,
@@ -98,8 +99,8 @@ def train_market(market: str):
             lstm_model.cpu()  # Move to CPU for evaluation
             with torch.no_grad():
                 test_pred = lstm_model(torch.FloatTensor(X_test_seq))
-                test_acc = ((test_pred > 0.5).float() == torch.FloatTensor(y_test_seq)).float().mean()
-                logger.info(f"LSTM Test Accuracy: {test_acc:.2%}")
+                lstm_test_acc = ((test_pred > 0.5).float() == torch.FloatTensor(y_test_seq)).float().mean().item()
+                logger.info(f"LSTM Test Accuracy: {lstm_test_acc:.2%}")
     else:
         logger.warning("Not enough data for LSTM training")
 
@@ -125,6 +126,36 @@ def train_market(market: str):
     test_pred = xgb_model.predict(X_test_xgb)
     test_acc = accuracy_score(y_test_xgb, test_pred)
     logger.info(f"XGBoost Test Accuracy: {test_acc:.2%}")
+
+    # ── Step 6: Write model metadata ───────────────────────
+    from datetime import datetime
+    import json
+
+    data_range = f"{df.index[0]} to {df.index[-1]}" if len(df) > 0 else "unknown"
+    base_meta = {
+        "market": market,
+        "trained_at": datetime.now().isoformat(),
+        "feature_count": len(feature_cols),
+        "data_range": data_range,
+        "train_rows": len(df_train),
+        "val_rows": len(df_val),
+        "test_rows": len(df_test),
+    }
+
+    # Save combined metadata
+    combined_meta = {
+        "lstm": {**base_meta, "model_name": f"lstm_{market}", "test_accuracy": lstm_test_acc},
+        "xgboost": {**base_meta, "model_name": f"xgboost_{market}", "test_accuracy": test_acc},
+    }
+    meta_path = MODELS_DIR / "model_metadata.json"
+    existing = {}
+    if meta_path.exists():
+        with open(meta_path) as f:
+            existing = json.load(f)
+    existing[market] = combined_meta
+    with open(meta_path, "w") as f:
+        json.dump(existing, f, indent=2, default=str)
+    logger.info(f"Model metadata written → {meta_path}")
 
     logger.success(f"\n✅ All models trained for {market}!")
     logger.info(f"Models saved in: {MODELS_DIR}")

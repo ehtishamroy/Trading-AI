@@ -9,7 +9,7 @@ from loguru import logger
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from config.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, PROXY_URL
 
 def send_telegram_alert(message: str) -> bool:
     """Send a text message via Telegram bot."""
@@ -25,12 +25,10 @@ def send_telegram_alert(message: str) -> bool:
         "parse_mode": "HTML"
     }
 
-    # SOCKS5 Proxy to bypass regional blocks
-    # Using socks5h:// to tunnel DNS requests as well (crucial for bypassing regional blocks)
-    proxies = {
-        "http": "socks5h://1dc54f765e72f72cac00__cr.gb:c3a6db9859e7c9cc@gw.dataimpulse.com:10003",
-        "https": "socks5h://1dc54f765e72f72cac00__cr.gb:c3a6db9859e7c9cc@gw.dataimpulse.com:10003"
-    }
+    # SOCKS5 Proxy to bypass regional blocks (loaded from PROXY_URL env var)
+    proxies = {}
+    if PROXY_URL:
+        proxies = {"http": PROXY_URL, "https": PROXY_URL}
     
     try:
         response = requests.post(url, json=payload, proxies=proxies, timeout=15)

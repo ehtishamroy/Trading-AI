@@ -115,6 +115,23 @@ class TradingJournal:
 
         return "\n".join(lines)
 
+    def get_pattern_stats(self, market: str, regime: str, direction: str) -> float:
+        """
+        Get historical win rate for a specific pattern.
+        Returns win rate (0.0-1.0) or 0.5 if no data exists.
+        """
+        key = f"{market}_{regime}_{direction}"
+        if key in self.patterns and self.patterns[key]["total"] >= 3:
+            return self.patterns[key]["win_rate"]
+        # Fall back to market-level stats if specific pattern has too few trades
+        market_patterns = {k: v for k, v in self.patterns.items() if k.startswith(market)}
+        if market_patterns:
+            total_wins = sum(v["wins"] for v in market_patterns.values())
+            total_trades = sum(v["total"] for v in market_patterns.values())
+            if total_trades >= 3:
+                return round(total_wins / total_trades, 3)
+        return 0.5  # Default when no historical data
+
     def get_daily_summary(self) -> dict:
         """Get today's trading summary."""
         today = datetime.now().date().isoformat()
