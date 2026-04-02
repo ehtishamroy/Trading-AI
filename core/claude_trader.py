@@ -1,38 +1,69 @@
 """
-Claude AI Integration — Multi-Agent Debate System.
+Ollama Local LLM Integration — Multi-Agent Debate System.
 
-Three Claude agents debate each trade:
+Three AI agents debate each trade using a FREE local LLM via Ollama:
   🟢 Agent BULL — Makes the strongest case for BUYING
   🔴 Agent BEAR — Makes the strongest case for SELLING
   ⚖️ Agent JUDGE — Reads both + data → renders final verdict
 
-This kills confirmation bias and forces adversarial thinking.
+100% FREE — No API keys required.
+Requires Ollama running locally: https://ollama.com
+Model: llama3.1:8b (or any other Ollama model)
 """
 
-import anthropic
 import json
+import requests
 from loguru import logger
 from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from config.settings import CLAUDE_API_KEY, CLAUDE_MODEL, CLAUDE_MAX_TOKENS
+from config.settings import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_MAX_TOKENS
 
 
 class ClaudeTrader:
     """
-    Multi-Agent Debate system using Claude AI.
+    Multi-Agent Debate system using Ollama local LLM.
+    Drop-in replacement for the Claude API version.
     Each trade goes through a Bull/Bear/Judge debate
     before a final recommendation is made.
     """
 
     def __init__(self):
-        if not CLAUDE_API_KEY:
-            logger.warning("No CLAUDE_API_KEY set — Claude features disabled")
-            self.client = None
-            return
-        self.client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-        logger.info("Claude AI connected")
+        self.base_url = OLLAMA_BASE_URL
+        self.model = OLLAMA_MODEL
+        self.max_tokens = OLLAMA_MAX_TOKENS
+
+        if self._check_ollama():
+            logger.info(f"✅ Ollama connected — Model: {self.model}")
+            self.available = True
+        else:
+            logger.warning(
+                f"⚠️  Ollama not reachable at {self.base_url}. "
+                "Start Ollama: https://ollama.com | then run: ollama pull llama3.1:8b"
+            )
+            self.available = False
+
+    def _check_ollama(self) -> bool:
+        """Check if Ollama is running and the model is available."""
+        try:
+            resp = requests.get(f"{self.base_url}/api/tags", timeout=3)
+            if resp.status_code == 200:
+                models = [m["name"] for m in resp.json().get("models", [])]
+                # Accept any variant of the model name (e.g. llama3.1:8b, llama3.1:latest)
+                base = self.model.split(":")[0]
+                if any(base in m for m in models):
+                    return True
+                # Model list fetched but model not found — try to pull it automatically
+                logger.warning(f"Model '{self.model}' not found locally. Available: {models}")
+                logger.info(f"Run this command to pull it: ollama pull {self.model}")
+                return False
+            return False
+        except requests.exceptions.ConnectionError:
+            return False
+        except Exception as e:
+            logger.warning(f"Ollama check error: {e}")
+            return False
 
     # ─── SYSTEM PROMPTS ──────────────────────────────────
 
@@ -47,8 +78,8 @@ Core Rules you ALWAYS follow:
 - Cut losers fast, let winners run
 - Never average down on a losing position
 
-You are trading with $200 capital using micro lots (0.01) on Exness MT5.
-Leverage is 1:100. Every pip matters at this account size."""
+You are trading on an Exness MT5 micro-account (0.01 lots).
+Leverage is 1:100. Your current account balance and risk limits will be provided in the 'Account' section below. Every pip matters at your account size. This is a demo learning phase — be willing to take trades at 5+/10 confidence."""
 
     BULL_PROMPT = TRADER_BASE + """
 
@@ -85,7 +116,7 @@ PRE-MORTEM: Before finalizing, imagine this trade just hit stop loss.
 What went wrong? If you can easily explain the failure,
 reduce your confidence score.
 
-You MUST respond in this exact JSON format:
+You MUST respond in this exact JSON format and NOTHING else — no markdown, no explanation, just the JSON:
 {
     "decision": "BUY" or "SELL" or "HOLD",
     "confidence": 1-10,
@@ -118,19 +149,19 @@ You MUST respond in this exact JSON format:
                 reasoning: Full reasoning
             }
         """
-        if not self.client:
+        if not self.available:
             return self._mock_response()
 
         # Step 1: Agent BULL makes the case for buying
         logger.info("🟢 Agent BULL building case...")
-        bull_case = self._call_claude(
+        bull_case = self._call_ollama(
             system=self.BULL_PROMPT,
             user=f"Analyze this setup and make your strongest case for BUYING:\n\n{market_context}"
         )
 
         # Step 2: Agent BEAR makes the case against
         logger.info("🔴 Agent BEAR building case...")
-        bear_case = self._call_claude(
+        bear_case = self._call_ollama(
             system=self.BEAR_PROMPT,
             user=f"Analyze this setup and make your strongest case AGAINST buying (or for SELLING):\n\n{market_context}"
         )
@@ -144,10 +175,10 @@ You MUST respond in this exact JSON format:
             f"---\n\n"
             f"## Agent BEAR's Case 🔴\n{bear_case}\n\n"
             f"---\n\n"
-            f"Now render your verdict. Respond ONLY with the JSON format specified."
+            f"Now render your verdict. Respond ONLY with the JSON format specified. No preamble, no markdown fences."
         )
 
-        judge_response = self._call_claude(
+        judge_response = self._call_ollama(
             system=self.JUDGE_PROMPT,
             user=judge_context
         )
@@ -171,11 +202,11 @@ You MUST respond in this exact JSON format:
 
     def debrief_trade(self, trade_info: str) -> str:
         """
-        Post-trade analysis. Claude reviews what happened and why.
+        Post-trade analysis. LLM reviews what happened and why.
         Feeds into the self-learning system.
         """
-        if not self.client:
-            return "Claude unavailable — debrief skipped"
+        if not self.available:
+            return "Ollama unavailable — debrief skipped"
 
         debrief_prompt = f"""You are reviewing a completed trade. Analyze what happened:
 
@@ -190,24 +221,27 @@ Provide:
 
 Be concise and actionable."""
 
-        return self._call_claude(
+        return self._call_ollama(
             system=self.TRADER_BASE,
             user=debrief_prompt
         )
 
     def score_central_bank(self, transcript: str) -> dict:
         """Score a central bank speech/statement as hawkish/dovish."""
-        if not self.client:
+        if not self.available:
             return {"score": 0, "label": "Neutral"}
 
         prompt = f"""Analyze this central bank statement and score it:
 
 {transcript}
 
-Respond with JSON:
+Respond ONLY with JSON (no markdown, no explanation):
 {{"score": -5 to +5, "label": "Very Hawkish" to "Very Dovish", "key_phrases": ["phrase1", "phrase2"], "impact": "bullish/bearish/neutral for EUR/USD"}}"""
 
-        response = self._call_claude(system="You are a central bank policy analyst.", user=prompt)
+        response = self._call_ollama(
+            system="You are a central bank policy analyst. Respond only with JSON.",
+            user=prompt
+        )
         try:
             return json.loads(response)
         except json.JSONDecodeError:
@@ -215,31 +249,56 @@ Respond with JSON:
 
     # ─── INTERNAL METHODS ────────────────────────────────
 
-    def _call_claude(self, system: str, user: str) -> str:
-        """Make a single Claude API call."""
+    def _call_ollama(self, system: str, user: str) -> str:
+        """Make a single Ollama API call using the /api/chat endpoint."""
         try:
-            response = self.client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=CLAUDE_MAX_TOKENS,
-                system=system,
-                messages=[{"role": "user", "content": user}]
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "stream": False,
+                "options": {
+                    "num_predict": self.max_tokens,
+                    "temperature": 0.7,
+                }
+            }
+            resp = requests.post(
+                f"{self.base_url}/api/chat",
+                json=payload,
+                timeout=120  # Local LLM can be slow on first run
             )
-            return response.content[0].text
+            resp.raise_for_status()
+            data = resp.json()
+            return data["message"]["content"]
+        except requests.exceptions.Timeout:
+            logger.error("Ollama request timed out — model may still be loading, try again")
+            return "Error: Ollama timeout"
+        except requests.exceptions.ConnectionError:
+            logger.error("Ollama connection refused — is Ollama running? Start it first.")
+            self.available = False
+            return "Error: Ollama not running"
         except Exception as e:
-            logger.error(f"Claude API error: {e}")
+            logger.error(f"Ollama API error: {e}")
             return f"Error: {e}"
 
     def _parse_verdict(self, response: str) -> dict:
         """Parse Judge's JSON response, handling markdown code blocks."""
         try:
-            # Try to extract JSON from response
             text = response.strip()
+            # Strip common markdown wrappers
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
+            # Find first { ... } block if there's extra text
+            if "{" in text and "}" in text:
+                start = text.index("{")
+                end = text.rindex("}") + 1
+                text = text[start:end]
             return json.loads(text)
-        except (json.JSONDecodeError, IndexError):
+        except (json.JSONDecodeError, IndexError, ValueError):
             logger.warning("Could not parse Judge's response as JSON")
             return {
                 "decision": "HOLD",
@@ -249,15 +308,18 @@ Respond with JSON:
             }
 
     def _mock_response(self) -> dict:
-        """Return mock response when Claude API is not available."""
+        """Return mock response when Ollama is not available."""
         return {
             "verdict": {
                 "decision": "HOLD",
                 "confidence": 0,
-                "reasoning": "Claude API not configured. Set CLAUDE_API_KEY in .env",
+                "reasoning": (
+                    "Ollama LLM not available. "
+                    "Install Ollama from https://ollama.com then run: ollama pull llama3.1:8b"
+                ),
             },
-            "bull_case": "N/A — Claude not connected",
-            "bear_case": "N/A — Claude not connected",
+            "bull_case": "N/A — Ollama not running",
+            "bear_case": "N/A — Ollama not running",
         }
 
 
@@ -272,7 +334,7 @@ def build_market_context(
 ) -> str:
     """
     Build the complete market context string that feeds into the debate.
-    This is what all three Claude agents receive to analyze.
+    This is what all three LLM agents receive to analyze.
     """
     context = f"""# Trade Analysis — {market}
 
@@ -282,10 +344,10 @@ def build_market_context(
 - **Time**: {current_price.get('time', 'N/A')}
 
 ## Account
-- **Balance**: ${account_info.get('balance', 200) if account_info else 200}
+- **Balance**: ${account_info.get('balance', 500) if account_info else 500}
 - **Open Positions**: {account_info.get('positions', 0) if account_info else 0}
 - **Leverage**: 1:100
-- **Risk per trade**: 2% (${account_info.get('balance', 200) * 0.02:.2f} if account_info else '$4')
+- **Risk per trade**: 2% (${account_info.get('balance', 500) * 0.02:.2f} if account_info else '$10')
 
 {ensemble_signal}
 

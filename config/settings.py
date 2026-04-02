@@ -13,7 +13,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 # ─── MARKET SETTINGS ─────────────────────────────────────
 MARKETS = {
     "EURUSD": {"mt5_symbol": "EURUSDm", "type": "forex", "pip_value": 0.00001},
-    "XAUUSD": {"mt5_symbol": "XAUUSDm", "type": "commodity", "pip_value": 0.001},
+    "XAUUSD": {"mt5_symbol": "XAUUSDm", "type": "commodity", "pip_value": 0.01},
     "BTCUSD": {"mt5_symbol": "BTCUSDm", "type": "crypto", "pip_value": 0.01},
 }
 ACTIVE_MARKET = os.getenv("ACTIVE_MARKET", "EURUSD")  # Trade one at a time
@@ -27,7 +27,7 @@ LOT_SIZE = 0.01                        # Micro lots
 TRADING_MODE = os.getenv("TRADING_MODE", "demo")  # 'demo' or 'live'
 
 # ─── RISK MANAGEMENT ─────────────────────────────────────
-MAX_RISK_PER_TRADE = 0.02             # 2% = $4 on $200
+MAX_RISK_PER_TRADE = 0.02             # 2% = $10 on $500
 MAX_TRADES_PER_DAY = 4                # 3-4 quality trades
 MAX_CONSECUTIVE_LOSSES = 3            # Pause after 3 losses in a row
 PAUSE_AFTER_LOSSES_HOURS = 4          # Pause for 4 hours
@@ -39,25 +39,31 @@ MIN_SIGNAL_CONFIDENCE = 0.6           # Minimum ML confidence to consider
 
 # ─── BACKTESTING ──────────────────────────────────────────
 INITIAL_CAPITAL = STARTING_CAPITAL
-COMMISSION_RATE = 0.00007             # ~0.7 pips spread (Exness typical)
+COMMISSION_RATE = 0.00000             # Base commission separate from spread
+SPREAD_MODEL = "fixed"                # Mode: "fixed" or "dynamic" (for data collection)
+SPREAD_PIPS = 0.7                     # ~0.7 pips spread (Exness typical)
 BACKTEST_START = "2023-01-01"
 BACKTEST_END = "2025-12-31"
 
 # ─── AEGIS SCORE THRESHOLDS ──────────────────────────────
-AEGIS_NO_TRADE = 55        # Below 55 = no trade (DEMO LEARNING MODE — was 65)
-AEGIS_CAUTION = 70         # 55-70 = yellow (human must approve)  
-# Above 70 = green (OK for auto-mode)
+DEMO_MODE_OVERRIDES = True
+if DEMO_MODE_OVERRIDES and TRADING_MODE == "demo":
+    AEGIS_NO_TRADE = 55        # Below 55 = no trade (DEMO LEARNING MODE)
+else:
+    AEGIS_NO_TRADE = 65        # Production requirement
+
+AEGIS_CAUTION = 70             # yellow zone (human must approve)  
 
 AEGIS_WEIGHTS = {
     "ml_confidence": 0.30,
     "sentiment": 0.15,
-    "regime_fit": 0.20,
-    "claude_verdict": 0.20,
-    "pattern_match": 0.15,
+    "regime_fit": 0.25,
+    "claude_verdict": 0.10,
+    "pattern_match": 0.20,
 }
 
 # ─── API KEYS (from .env) ────────────────────────────────
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
+CLAUDE_API_KEY = ""  # Replaced by Ollama — no API key needed
 NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -67,10 +73,15 @@ MT5_LOGIN = int(os.getenv("MT5_LOGIN", "0"))
 MT5_PASSWORD = os.getenv("MT5_PASSWORD", "")
 MT5_SERVER = os.getenv("MT5_SERVER", "Exness-MT5Trial")  # Demo server
 
-# ─── CLAUDE AI ────────────────────────────────────────────
-CLAUDE_MODEL = "claude-sonnet-4-20250514"      # Good balance of cost/quality
-CLAUDE_MAX_TOKENS = 2000
-CLAUDE_MIN_CONFIDENCE = 7             # Claude must score 7+/10
+# ─── OLLAMA LOCAL LLM (FREE — replaces Claude API) ──────────
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")  # Run: ollama pull llama3.1:8b
+OLLAMA_MAX_TOKENS = 2000
+CLAUDE_MIN_CONFIDENCE = 7             # Minimum LLM confidence to trade
+
+# Legacy aliases (kept for any remaining references)
+CLAUDE_MODEL = OLLAMA_MODEL
+CLAUDE_MAX_TOKENS = OLLAMA_MAX_TOKENS
 
 # ─── ML TRAINING ──────────────────────────────────────────
 LSTM_SEQUENCE_LEN = 60                # 60 candles lookback
@@ -100,7 +111,7 @@ for d in [DATA_DIR, MODELS_DIR, LOGS_DIR, JOURNAL_DIR, MEMORY_DIR]:
 
 # ─── TRADING SESSIONS (PKT timezone = UTC+5) ─────────────
 TRADING_SESSIONS = {
-    "EURUSD": {"start": "13:00", "end": "17:00", "tz": "Asia/Karachi"},  # London-NY overlap
-    "XAUUSD": {"start": "18:00", "end": "23:00", "tz": "Asia/Karachi"},  # NY session
+    "EURUSD": {"start": "17:00", "end": "21:00", "tz": "Asia/Karachi"},  # London-NY overlap
+    "XAUUSD": {"start": "17:00", "end": "21:00", "tz": "Asia/Karachi"},  # London-NY overlap
     "BTCUSD": {"start": "00:00", "end": "23:59", "tz": "Asia/Karachi"},  # 24/7
 }

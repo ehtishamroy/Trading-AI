@@ -8,16 +8,14 @@ print()
 # Test 1: Config loads
 try:
     from config.settings import (
-        ACTIVE_MARKET, STARTING_CAPITAL, CLAUDE_API_KEY,
-        NEWS_API_KEY, MT5_LOGIN, CLAUDE_MODEL
+        ACTIVE_MARKET, STARTING_CAPITAL,
+        NEWS_API_KEY, MT5_LOGIN, OLLAMA_MODEL, OLLAMA_BASE_URL
     )
     print('[OK] Config loaded')
     print(f'     Active market: {ACTIVE_MARKET}')
     print(f'     Starting capital: ${STARTING_CAPITAL}')
-    if CLAUDE_API_KEY:
-        print(f'     Claude API key: {CLAUDE_API_KEY[:12]}...')
-    else:
-        print('     [WARN] No Claude API key')
+    print(f'     Ollama URL: {OLLAMA_BASE_URL}')
+    print(f'     Ollama Model: {OLLAMA_MODEL}')
     if NEWS_API_KEY:
         print(f'     News API key: {NEWS_API_KEY[:8]}...')
     else:
@@ -57,21 +55,25 @@ except Exception as e:
 
 print()
 
-# Test 3: Claude API
+# Test 3: Ollama Local LLM
 try:
-    import anthropic
-    if CLAUDE_API_KEY:
-        client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=50,
-            messages=[{'role': 'user', 'content': 'Say exactly: Trading system online'}]
-        )
-        print(f'[OK] Claude API: {response.content[0].text}')
+    import requests
+    resp = requests.get(f'{OLLAMA_BASE_URL}/api/tags', timeout=3)
+    if resp.status_code == 200:
+        models = [m['name'] for m in resp.json().get('models', [])]
+        base = OLLAMA_MODEL.split(':')[0]
+        matched = [m for m in models if base in m]
+        if matched:
+            print(f'[OK] Ollama running — model "{matched[0]}" ready (FREE local LLM 🎉)')
+        else:
+            print(f'[WARN] Ollama running but model not pulled yet.')
+            print(f'       Run: ollama pull {OLLAMA_MODEL}')
+            print(f'       Available models: {models}')
     else:
-        print('[SKIP] Claude API — no key configured')
+        print(f'[FAIL] Ollama returned status {resp.status_code}')
 except Exception as e:
-    print(f'[FAIL] Claude API: {e}')
+    print(f'[FAIL] Ollama not running — install from https://ollama.com then run: ollama pull {OLLAMA_MODEL}')
+    print(f'       Error: {e}')
 
 print()
 

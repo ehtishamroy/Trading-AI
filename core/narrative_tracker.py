@@ -15,7 +15,8 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from config.settings import MEMORY_DIR, CLAUDE_API_KEY, CLAUDE_MODEL, CLAUDE_MAX_TOKENS
+import requests
+from config.settings import MEMORY_DIR, OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_MAX_TOKENS
 
 
 class NarrativeTracker:
@@ -96,28 +97,34 @@ class NarrativeTracker:
 
     def generate_ai_narrative(self, market_data: str) -> str:
         """
-        Use Claude to generate a narrative summary of recent market action.
-        Called at end of each trading day.
+        Use local Ollama LLM to generate a narrative summary of recent market action.
+        Called at end of each trading day. FREE — no API key needed.
         """
-        if not CLAUDE_API_KEY:
-            return ""
-
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-
-            response = client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=500,
-                system="You are a market analyst. Write a brief 2-3 sentence narrative about today's market action. Focus on the story — what happened, why, and what it means for tomorrow. Be concise.",
-                messages=[{
-                    "role": "user",
-                    "content": f"Summarize today's action for {self.market}:\n{market_data}"
-                }]
+            payload = {
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a market analyst. Write a brief 2-3 sentence narrative about today's market action. Focus on the story — what happened, why, and what it means for tomorrow. Be concise."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Summarize today's action for {self.market}:\n{market_data}"
+                    }
+                ],
+                "stream": False,
+                "options": {"num_predict": 500, "temperature": 0.7}
+            }
+            resp = requests.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json=payload,
+                timeout=60
             )
-            return response.content[0].text
+            resp.raise_for_status()
+            return resp.json()["message"]["content"]
         except Exception as e:
-            logger.error(f"AI narrative error: {e}")
+            logger.error(f"Ollama narrative error: {e}")
             return ""
 
     def _summarize_price_action(self, summary: dict) -> str:

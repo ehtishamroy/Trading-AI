@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from config.settings import (
     MARKETS, ENTRY_TIMEFRAME, TRAIN_TEST_SPLIT,
-    LSTM_SEQUENCE_LEN, MODELS_DIR
+    LSTM_SEQUENCE_LEN, MODELS_DIR, PREDICTION_HORIZON
 )
 from data.mt5_connector import connect_mt5, disconnect_mt5
 from data.fetcher import fetch_and_save, load_data
@@ -55,9 +55,24 @@ def train_market(market: str):
     split_idx = int(len(df) * TRAIN_TEST_SPLIT)
     val_start = int(split_idx + (len(df) - split_idx) * 0.5)
 
-    df_train = df.iloc[:split_idx]
-    df_val = df.iloc[split_idx:val_start]
+    # Enforce a gap equal to PREDICTION_HORIZON between splits to prevent target leakage
+    train_end = split_idx - PREDICTION_HORIZON
+    val_end = val_start - PREDICTION_HORIZON
+
+    df_train = df.iloc[:train_end]
+    df_val = df.iloc[split_idx:val_end]
     df_test = df.iloc[val_start:]
+
+    # Validate no look-ahead overlap between splits
+    import pandas as pd
+    if len(df_train) > 0 and len(df_val) > 0 and len(df_test) > 0:
+        # Calculate time delta for prediction horizon (assuming M15 = 15m)
+        tf_mins = 15 if ENTRY_TIMEFRAME == "M15" else 60
+        gap = pd.Timedelta(minutes=tf_mins * PREDICTION_HORIZON)
+        
+        # We use <= because the gap gives us exactly the required distance
+        assert max(df_train.index) + gap <= min(df_val.index), "Leakage detected between Train and Val splits!"
+        assert max(df_val.index) + gap <= min(df_test.index), "Leakage detected between Val and Test splits!"
 
     logger.info(f"Train: {len(df_train)} | Val: {len(df_val)} | Test: {len(df_test)}")
 

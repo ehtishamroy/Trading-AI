@@ -1,38 +1,38 @@
 {
   "market": "BTCUSD",
-  "timestamp": "2026-03-09T03:28:12.409796",
+  "timestamp": "2026-03-12T07:00:00.308353",
   "current_price": {
     "symbol": "BTCUSDm",
-    "bid": 65865.99,
-    "ask": 65883.99,
+    "bid": 69835.32,
+    "ask": 69853.32,
     "spread": 18.0,
-    "time": "2026-03-09 03:27:23"
+    "time": "2026-03-12 06:59:43"
   },
   "account": {
-    "balance": 498.78,
-    "equity": 498.78,
+    "balance": 496.01,
+    "equity": 496.01,
     "margin": 0.0,
-    "free_margin": 498.78,
+    "free_margin": 496.01,
     "leverage": 100,
     "profit": 0.0
   },
   "ensemble": {
-    "direction": "up",
-    "confidence": 1.0,
-    "signal_strength": "STRONG",
-    "agreement": true,
-    "combined_score": "0.5339",
+    "direction": "down",
+    "confidence": "0.1316",
+    "signal_strength": "WEAK",
+    "agreement": false,
+    "combined_score": "-0.1053",
     "details": {
       "lstm": {
-        "direction": "up",
-        "confidence": 0.5528,
-        "raw_probability": 0.5528
+        "direction": "down",
+        "confidence": 0.6143,
+        "raw_probability": 0.3857
       },
       "xgboost": {
         "direction": "up",
-        "confidence": "0.5109",
-        "prob_up": "0.5109",
-        "prob_down": "0.4891"
+        "confidence": "0.5168",
+        "prob_up": "0.5168",
+        "prob_down": "0.4832"
       },
       "regime": {
         "regime": "RANGING",
@@ -40,14 +40,14 @@
         "scores": {
           "TRENDING_UP": 0,
           "TRENDING_DOWN": 0,
-          "RANGING": 3,
+          "RANGING": 6,
           "HIGH_VOLATILITY": 0
         },
         "details": {
-          "adx": 32.7,
-          "bb_width": 0.0089,
-          "volatility_ratio": 0.99,
-          "atr_pct": 0.0035
+          "adx": 17.93,
+          "bb_width": 0.0069,
+          "volatility_ratio": 0.75,
+          "atr_pct": 0.0041
         }
       }
     }
@@ -58,14 +58,14 @@
     "scores": {
       "TRENDING_UP": 0,
       "TRENDING_DOWN": 0,
-      "RANGING": 3,
+      "RANGING": 6,
       "HIGH_VOLATILITY": 0
     },
     "details": {
-      "adx": 32.7,
-      "bb_width": 0.0089,
-      "volatility_ratio": 0.99,
-      "atr_pct": 0.0035
+      "adx": 17.93,
+      "bb_width": 0.0069,
+      "volatility_ratio": 0.75,
+      "atr_pct": 0.0041
     }
   },
   "sentiment": {
@@ -77,56 +77,30 @@
   "debate": {
     "verdict": {
       "decision": "HOLD",
-      "confidence": 4,
-      "entry_price": null,
-      "stop_loss": null,
-      "take_profit": null,
-      "lot_size": 0.01,
-      "reasoning": "Despite the 100% ML ensemble agreement, I'm rejecting this trade. The individual model confidences (55% LSTM, 51% XGBoost) are barely above coin-flip levels. The 18-pip spread on a $500 account is brutal - we need significant movement just to break even. Weekend/Asia hours (03:27 GMT) present the worst liquidity conditions with high whipsaw risk. The ranging market regime (ADX 32.7) suggests we're in chop territory where breakouts typically fail. Zero news flow means no fundamental catalyst to drive sustained movement. This violates our core principle of capital preservation - marginal setups kill small accounts. The 'strong' signals are actually statistical noise dressed up as confidence.",
-      "bull_strength": "MODERATE",
-      "bear_strength": "STRONG",
-      "pre_mortem": "Trade hits stop loss due to weekend fake breakout that reverses Monday morning when real liquidity returns. The ranging market chops us out with a typical BTC head-fake move that traps retail longs.",
-      "key_risks": [
-        "18-pip spread eats significant edge on small account",
-        "Weekend liquidity trap with high whipsaw probability",
-        "ML signals barely above random (51-55% confidence)",
-        "Ranging market historically punishes breakout attempts"
-      ],
-      "what_changes_mind": "Individual ML model confidence above 70%, London/NY session timing, clear fundamental catalyst, or trending market regime confirmation"
+      "confidence": 0,
+      "reasoning": "Error: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CYxMq5DTjYDWMAktNwDjc'}",
+      "error": "Failed to parse JSON response"
     },
-    "bull_case": "# \ud83d\ude80 BULL CASE: BTCUSD BUY SETUP \n\n## **THE STRONGEST SIGNALS ARE ALIGNED** \ud83d\udd25\n\n**Machine Learning Consensus is CRYSTAL CLEAR:**\n- **100% ENSEMBLE AGREEMENT** for UP direction - this is RARE and POWERFUL\n- Both LSTM (55%) and XGBoost (51%) models showing bullish bias\n- This unanimous ML signal at 100% confidence is the kind of setup we wait for!\n\n## **TECHNICAL FRAMEWORK SUPPORTS THE MOVE**\n\n**Current Price Action:**\n- BTC at $65,865 - we're in a CLEAN ranging environment\n- **ADX at 32.7** shows STRONG trending capability when breakouts occur\n- Bollinger Band width at 0.0089 indicates **compression** - energy building for explosive move\n- Volume ratio at 0.99 shows NORMAL, healthy participation\n\n## **RISK MANAGEMENT IS FAVORABLE**\n\n**Perfect Setup for Our Rules:**\n- With 70% position sizing in ranging regime = **0.007 lot size**\n- Stop loss width at 1.0x ATR keeps risk tight\n- At current price levels, we can maintain our **2% max risk rule**\n- Spread at 18 pips is manageable for BTC at these levels\n\n## **THE STRATEGIC ADVANTAGE**\n\n**Why This Works:**\n1. **Ranging market + ML bullish signal** = mean reversion setup with directional edge\n2. **100% model confidence** rarely occurs - when it does, we act\n3. **Tight stops** due to ranging regime protect capital\n4. **BTC's momentum nature** means when it moves, it MOVES BIG\n\n## **ENTRY RECOMMENDATION:**\n\n**BUY at market** ($65,883.99)\n- **Stop Loss**: ~$65,750 (133 pips, 1.0x ATR)\n- **Target 1**: ~$66,150 (267 pips, 2:1 R/R)\n- **Target 2**: ~$66,400 (517 pips, 3.9:1 R/R)\n\n**Position Size**: 0.007 lots (Risk = $9.31, well under 2% limit)\n\n## **THE CONVICTION:**\n\nThis is a **HIGH-PROBABILITY SETUP** where:\n- ML models are screaming BUY with rare unanimity\n- Technical structure supports controlled risk\n- Risk/reward exceeds our 2:1 minimum requirement\n\n**Confidence Level: 8/10** \ud83c\udfaf\n\n*The stars are aligned. When BTC breaks from compression with 100% ML agreement, we ride the wave!*",
-    "bear_case": "# AGENT BEAR \ud83d\udd34 \u2014 STRONGEST CASE AGAINST BUYING BTCUSD\n\n## \ud83d\udea8 CRITICAL WARNING: THIS IS A HIGH-RISK TRAP SETUP\n\n### 1. **FALSE CONFIDENCE FROM WEAK ML SIGNALS**\n- **LSTM only 55% confidence** \u2014 barely above coin flip!\n- **XGBoost only 51% confidence** \u2014 essentially random\n- **\"100% confidence\" is MISLEADING** \u2014 it's just agreement between two weak signals\n- These marginal ML predictions are statistical noise, not actionable intelligence\n\n### 2. **RANGING MARKET = DEATH BY 1000 CUTS**\n- **ADX 32.7** confirms we're in a sideways grind\n- BTC has been chopping traders to pieces in ranges lately\n- **70% position sizing** shows even the system knows this is sketchy\n- Mean reversion in ranges means any breakout attempt gets SOLD INTO\n\n### 3. **HORRIBLE TIMING - WEEKEND/ASIA HOURS**\n- **03:27 GMT** = lowest liquidity period\n- Thin books = easy to get whipsawed\n- Weekend crypto = retail-dominated moves that reverse Monday\n- Perfect setup for stop hunting and fake breakouts\n\n### 4. **SPREAD IS EATING YOUR EDGE ALIVE**\n- **18 pip spread** at this account size is BRUTAL\n- Need 18+ pips just to break even\n- At 0.01 lots, that's already significant drag\n- You're starting underwater before price even moves\n\n### 5. **NO NEWS FLOW = NO CATALYST**\n- **Zero articles** means no fundamental driver\n- Technical setups without catalysts are coin flips\n- Big moves need news flow \u2014 this is just chart watching\n\n### 6. **BITCOIN'S RECENT BEHAVIOR PATTERN**\n- BTC has been faking breakouts constantly\n- Institutional sellers waiting at resistance\n- Retail FOMO gets trapped every time\n- Classic \"buy the breakout, sell to retail\" game\n\n### 7. **RISK/REWARD DOESN'T EXIST HERE**\n- In a ranging market, targets are limited\n- Stop losses get hit frequently\n- **This violates the minimum 2:1 R:R rule**\n\n### 8. **CAPITAL PRESERVATION VIOLATION**\n- $500 account needs PERFECT setups\n- This is a marginal, low-confidence trade\n- One bad trade can wipe out weeks of gains\n- **PRESERVATION > PROFITS** at this stage\n\n## \ud83c\udfaf MY RECOMMENDATION: STAND ASIDE\n\n**This is exactly the type of setup that kills small accounts:**\n- Low conviction signals\n- Ranging market conditions  \n- Poor timing (weekend)\n- High spread costs\n- No fundamental catalyst\n\n**Wait for:**\n- 70%+ ML confidence\n- Trending market regime\n- London/NY session timing\n- Clear news catalyst\n- Proper risk/reward setup\n\n**Remember: The market will be here tomorrow. Your capital won't if you trade marginal setups.**\n\n\ud83d\udc80 **DON'T BE THE WEEKEND LIQUIDITY PROVIDER FOR THE WHALES** \ud83d\udc80",
-    "judge_raw": "{\n    \"decision\": \"HOLD\",\n    \"confidence\": 4,\n    \"entry_price\": null,\n    \"stop_loss\": null,\n    \"take_profit\": null,\n    \"lot_size\": 0.01,\n    \"reasoning\": \"Despite the 100% ML ensemble agreement, I'm rejecting this trade. The individual model confidences (55% LSTM, 51% XGBoost) are barely above coin-flip levels. The 18-pip spread on a $500 account is brutal - we need significant movement just to break even. Weekend/Asia hours (03:27 GMT) present the worst liquidity conditions with high whipsaw risk. The ranging market regime (ADX 32.7) suggests we're in chop territory where breakouts typically fail. Zero news flow means no fundamental catalyst to drive sustained movement. This violates our core principle of capital preservation - marginal setups kill small accounts. The 'strong' signals are actually statistical noise dressed up as confidence.\",\n    \"bull_strength\": \"MODERATE\",\n    \"bear_strength\": \"STRONG\",\n    \"pre_mortem\": \"Trade hits stop loss due to weekend fake breakout that reverses Monday morning when real liquidity returns. The ranging market chops us out with a typical BTC head-fake move that traps retail longs.\",\n    \"key_risks\": [\"18-pip spread eats significant edge on small account\", \"Weekend liquidity trap with high whipsaw probability\", \"ML signals barely above random (51-55% confidence)\", \"Ranging market historically punishes breakout attempts\"],\n    \"what_changes_mind\": \"Individual ML model confidence above 70%, London/NY session timing, clear fundamental catalyst, or trending market regime confirmation\"\n}"
+    "bull_case": "Error: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CYxMq2x2jdHXa22Gxj8pB'}",
+    "bear_case": "Error: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CYxMq45VhQaC4cGQHsDRn'}",
+    "judge_raw": "Error: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CYxMq5DTjYDWMAktNwDjc'}"
   },
   "verdict": {
     "decision": "HOLD",
-    "confidence": 4,
-    "entry_price": null,
-    "stop_loss": null,
-    "take_profit": null,
-    "lot_size": 0.01,
-    "reasoning": "Despite the 100% ML ensemble agreement, I'm rejecting this trade. The individual model confidences (55% LSTM, 51% XGBoost) are barely above coin-flip levels. The 18-pip spread on a $500 account is brutal - we need significant movement just to break even. Weekend/Asia hours (03:27 GMT) present the worst liquidity conditions with high whipsaw risk. The ranging market regime (ADX 32.7) suggests we're in chop territory where breakouts typically fail. Zero news flow means no fundamental catalyst to drive sustained movement. This violates our core principle of capital preservation - marginal setups kill small accounts. The 'strong' signals are actually statistical noise dressed up as confidence.",
-    "bull_strength": "MODERATE",
-    "bear_strength": "STRONG",
-    "pre_mortem": "Trade hits stop loss due to weekend fake breakout that reverses Monday morning when real liquidity returns. The ranging market chops us out with a typical BTC head-fake move that traps retail longs.",
-    "key_risks": [
-      "18-pip spread eats significant edge on small account",
-      "Weekend liquidity trap with high whipsaw probability",
-      "ML signals barely above random (51-55% confidence)",
-      "Ranging market historically punishes breakout attempts"
-    ],
-    "what_changes_mind": "Individual ML model confidence above 70%, London/NY session timing, clear fundamental catalyst, or trending market regime confirmation"
+    "confidence": 0,
+    "reasoning": "Error: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CYxMq5DTjYDWMAktNwDjc'}",
+    "error": "Failed to parse JSON response"
   },
   "aegis": {
-    "score": 73.0,
-    "level": "GREEN",
-    "label": "High Conviction \u2705",
-    "can_trade": true,
+    "score": "38.9",
+    "level": "RED",
+    "label": "No Trade \u274c",
+    "can_trade": "False",
     "components": {
-      "ml_confidence": 30.0,
+      "ml_confidence": "3.9",
       "sentiment": 7.5,
       "regime_fit": 20.0,
-      "claude_verdict": 8.0,
+      "claude_verdict": 0.0,
       "pattern_match": 7.5
     }
   },
@@ -134,6 +108,6 @@
     "allowed": true,
     "reason": "All checks passed \u2705"
   },
-  "can_trade": true,
+  "can_trade": "False",
   "decision": "HOLD"
 }

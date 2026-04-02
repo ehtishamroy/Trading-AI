@@ -136,6 +136,18 @@ def get_symbol_info(symbol: str) -> dict:
     }
 
 
+def get_pip_value(symbol: str, current_price: float, lot_size: float = 0.01) -> float:
+    """
+    Get the pip value in USD.
+    Dynamically recalculates for crypto since pip value depends on the price.
+    """
+    if symbol == "BTCUSDm" or symbol == "BTCUSD":
+        # BTC pip value dynamically scales with price and lot size
+        return lot_size * current_price * 0.01
+    return MARKETS.get(symbol.replace('m', ''), MARKETS.get(symbol, {})).get("pip_value", 0.0001) * lot_size
+
+
+
 def place_order(
     symbol: str,
     order_type: str,  # 'buy' or 'sell'

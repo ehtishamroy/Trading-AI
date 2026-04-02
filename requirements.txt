@@ -28,8 +28,10 @@ hmmlearn>=0.3.2
 # SHAP (feature attribution)
 shap>=0.45.0
 
-# Claude AI
-anthropic>=0.20.0
+# Local LLM via Ollama (FREE — replaces Claude API)
+# Install Ollama: https://ollama.com
+# Then run: ollama pull llama3.1:8b
+# Uses 'requests' library (already listed below) — no extra package needed
 
 # News & Sentiment
 requests>=2.31.0

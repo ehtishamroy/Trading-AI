@@ -10,13 +10,14 @@ import ta
 from loguru import logger
 
 
-def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
+def compute_all_features(df: pd.DataFrame, market_type: str = "forex") -> pd.DataFrame:
     """
     Compute ALL features from raw OHLCV data.
     Input: DataFrame with columns [open, high, low, close, volume]
     Output: Enriched DataFrame with 60+ indicator columns + target labels.
     """
     df = df.copy()
+    eps = np.finfo(float).eps
     c = df["close"]
     h = df["high"]
     l = df["low"]
@@ -77,10 +78,16 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
     df["kc_lower"] = kc.keltner_channel_lband()
 
     # ═══ VOLUME INDICATORS ══════════════════════════════════
-    df["obv"]        = ta.volume.on_balance_volume(c, v)
-    df["cmf_20"]     = ta.volume.chaikin_money_flow(h, l, c, v, window=20)
-    df["vol_sma_20"] = v.rolling(20).mean()
-    df["vol_ratio"]  = v / (df["vol_sma_20"] + 1e-9)
+    if market_type in ["crypto", "stock"]:
+        df["obv"]        = ta.volume.on_balance_volume(c, v)
+        df["cmf_20"]     = ta.volume.chaikin_money_flow(h, l, c, v, window=20)
+        df["vol_sma_20"] = v.rolling(20).mean()
+        df["vol_ratio"]  = v / (df["vol_sma_20"] + eps)
+    else:
+        # Forex/Commodities tick volume is unreliable — set to 0.0
+        df["obv"]        = 0.0
+        df["cmf_20"]     = 0.0
+        df["vol_ratio"]  = 0.0
 
     # ═══ PRICE-DERIVED FEATURES ═════════════════════════════
     df["returns_1"]  = c.pct_change(1)
@@ -89,12 +96,12 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
     df["returns_14"] = c.pct_change(14)
     df["log_return"] = np.log(c / c.shift(1))
 
-    df["high_low_pct"]   = (h - l) / (c + 1e-9)
-    df["close_open_pct"] = (c - o) / (o + 1e-9)
+    df["high_low_pct"]   = (h - l) / (c + eps)
+    df["close_open_pct"] = (c - o) / (o + eps)
 
     # Price vs key MAs
-    df["price_vs_ema50"]  = (c - df["ema_50"]) / (df["ema_50"] + 1e-9)
-    df["price_vs_ema200"] = (c - df["ema_200"]) / (df["ema_200"] + 1e-9)
+    df["price_vs_ema50"]  = (c - df["ema_50"]) / (df["ema_50"] + eps)
+    df["price_vs_ema200"] = (c - df["ema_200"]) / (df["ema_200"] + eps)
 
     # EMA crosses
     df["ema_cross_9_21"]  = df["ema_9"] - df["ema_21"]
@@ -102,11 +109,21 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # Volatility regime
     df["volatility_20"]    = df["log_return"].rolling(20).std() * np.sqrt(252 * 24)
-    df["volatility_ratio"] = df["volatility_20"] / (df["volatility_20"].rolling(100).mean() + 1e-9)
+    df["volatility_ratio"] = df["volatility_20"] / (df["volatility_20"].rolling(100).mean() + eps)
+
+    # ═══ TIME & H1 TREND FEATURES (PRIORITY) ════════════════
+    # Hour of day (cyclical) and day of week
+    df["hour_sin"] = np.sin(2 * np.pi * df.index.hour / 24.0)
+    df["hour_cos"] = np.cos(2 * np.pi * df.index.hour / 24.0)
+    df["day_of_week"] = df.index.dayofweek
+    
+    # H1 Trend Proxy (80 EMA on M15 roughly equals 20 EMA on H1)
+    df["ema_80"] = ta.trend.ema_indicator(c, window=80)
+    df["h1_trend_slope"] = (df["ema_80"] - df["ema_80"].shift(4)) / (df["ema_80"].shift(4) + eps)
 
     # ═══ CANDLESTICK PATTERNS ═══════════════════════════════
     body = abs(c - o)
-    candle_range = h - l + 1e-9
+    candle_range = h - l + eps
 
     df["doji"]           = (body / candle_range < 0.1).astype(int)
     df["hammer"]         = ((c > o) & ((o - l) > 2 * body) & ((h - c) < body * 0.3)).astype(int)
@@ -126,6 +143,7 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
     df["shadow_ratio"]   = (h - c.combine(o, max)) / candle_range
 
     # ═══ RSI DIVERGENCE ═════════════════════════════════════
+    # TODO: Improve divergence logic using proper swing high/low detection
     price_lower = (c < c.shift(5)) & (c < c.shift(10))
     rsi_higher  = (df["rsi_14"] > df["rsi_14"].shift(5))
     df["rsi_bull_div"] = (price_lower & rsi_higher).astype(int)
@@ -145,6 +163,17 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
     df["target"] = (c.shift(-12) > c).astype(int)
     df["future_return"] = c.shift(-12) / c - 1
 
+    # Explicitly drop rows where target is NaN (the last 12 rows) IMMEDIATELY
+    # to prevent downstream code from accidentally training on future data.
+    # Note: df.dropna(subset=['target']) behaves fine, but target is type int above, 
+    # except astype(int) creates 0s instead of NaN for the condition `c.shift > c`.
+    # It must be calculated correctly with NaN preservation:
+    target_series = c.shift(-12) > c
+    target_series.loc[c.shift(-12).isna()] = np.nan
+    df["target"] = target_series
+
+    df.dropna(subset=["target"], inplace=True)
+
     # Drop NaN rows (from rolling indicators)
     initial_len = len(df)
     df.dropna(inplace=True)
@@ -157,14 +186,17 @@ def get_feature_columns() -> list:
     """Return the list of feature column names used for ML training."""
     return [
         # Trend
-        "ema_9", "ema_21", "ema_50", "ema_200",
+        "ema_9", "ema_21", "ema_50", "sma_20", "ema_200",
         "macd", "macd_signal", "macd_hist",
         "adx", "adx_pos", "adx_neg",
+        "ichi_a", "ichi_b", "ichi_base", "ichi_conv",
+        "h1_trend_slope",
         # Momentum
         "rsi_14", "rsi_7", "stoch_k", "stoch_d",
         "cci", "williams_r", "roc_10", "mfi_14",
         # Volatility
         "bb_width", "bb_pct", "atr_pct",
+        "kc_upper", "kc_lower",
         # Volume
         "obv", "cmf_20", "vol_ratio",
         # Price-derived
@@ -173,14 +205,16 @@ def get_feature_columns() -> list:
         "price_vs_ema50", "price_vs_ema200",
         "ema_cross_9_21", "ema_cross_21_50",
         "volatility_20", "volatility_ratio",
+        # Time
+        "hour_sin", "hour_cos", "day_of_week",
         # Candlestick patterns
         "doji", "hammer", "bullish_engulf", "bearish_engulf",
         "bullish_candle", "shadow_ratio",
         "rsi_bull_div", "rsi_bear_div",
         # Lags
-        "rsi_lag_1", "rsi_lag_2", "rsi_lag_3",
-        "macd_hist_lag_1", "macd_hist_lag_2",
-        "returns_lag_1", "returns_lag_2", "returns_lag_3",
+        "rsi_lag_1", "rsi_lag_2", "rsi_lag_3", "rsi_lag_5",
+        "macd_hist_lag_1", "macd_hist_lag_2", "macd_hist_lag_3", "macd_hist_lag_5",
+        "returns_lag_1", "returns_lag_2", "returns_lag_3", "returns_lag_5",
     ]
 
 
@@ -191,9 +225,21 @@ def normalize_features(df: pd.DataFrame, feature_cols: list) -> pd.DataFrame:
     This prevents look-ahead bias (no future data leaks).
     """
     df_norm = df.copy()
+    eps = np.finfo(float).eps
+    
+    binary_cols = {
+        "doji", "hammer", "bullish_engulf", "bearish_engulf", 
+        "bullish_candle", "rsi_bull_div", "rsi_bear_div",
+        "day_of_week"
+    }
+
     for col in feature_cols:
-        roll_mean = df[col].rolling(200, min_periods=50).mean()
-        roll_std  = df[col].rolling(200, min_periods=50).std()
-        df_norm[col] = (df[col] - roll_mean) / (roll_std + 1e-9)
+        if col in binary_cols or col.startswith("hour_"):
+            # Do not normalize binary or cyclical time columns
+            pass
+        else:
+            roll_mean = df[col].rolling(200, min_periods=50).mean()
+            roll_std  = df[col].rolling(200, min_periods=50).std()
+            df_norm[col] = (df[col] - roll_mean) / (roll_std + eps)
     df_norm.dropna(inplace=True)
     return df_norm
