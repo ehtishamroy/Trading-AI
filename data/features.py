@@ -168,7 +168,7 @@ def compute_all_features(df: pd.DataFrame, market_type: str = "forex") -> pd.Dat
     # Note: df.dropna(subset=['target']) behaves fine, but target is type int above, 
     # except astype(int) creates 0s instead of NaN for the condition `c.shift > c`.
     # It must be calculated correctly with NaN preservation:
-    target_series = c.shift(-12) > c
+    target_series = (c.shift(-12) > c).astype(float)
     target_series.loc[c.shift(-12).isna()] = np.nan
     df["target"] = target_series
 
