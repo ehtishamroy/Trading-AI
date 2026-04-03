@@ -244,9 +244,17 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         sl = float(verdict.get("stop_loss") or 0.0)
         tp = float(verdict.get("take_profit") or 0.0)
         lot_size = risk_check.get("suggested_lot", 0.01)
-        
+
+        # Override HOLD when Aegis is strong (>=75) — ML stack is confident enough
+        if decision == "HOLD" and aegis["score"] >= 75 and ensemble["direction"] in ("up", "down"):
+            decision = "BUY" if ensemble["direction"] == "up" else "SELL"
+            logger.info(
+                f"⚡ Aegis GREEN ({aegis['score']}) overrides Claude HOLD → {decision} "
+                f"(ML ensemble: {ensemble['direction']} @ {ensemble['confidence']:.0%})"
+            )
+
         if decision == "HOLD":
-            logger.info(f"✅ Aegis GREEN ({aegis['score']}) but Claude said HOLD — skipping execution.")
+            logger.info(f"✅ Aegis ({aegis['score']}) + Claude HOLD — skipping execution.")
         else:
             # Check dashboard state for Auto mode
             is_auto = False
@@ -262,7 +270,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
 
             if is_auto:
                 logger.info("🤖 Auto-Mode Active: Executing trade on MT5...")
-                
+
                 mt5_symbol = MARKETS[market]["mt5_symbol"]
                 order_res = place_order(
                     symbol=mt5_symbol,
@@ -272,7 +280,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
                     take_profit=tp,
                     comment=f"Aegis_{aegis['score']:.0f}"
                 )
-                
+
                 if order_res.get("success"):
                     logger.success(f"✅ Trade Executed: {decision} {market} at {current.get('bid')} | SL: {sl} | TP: {tp}")
                     # Log to journal
