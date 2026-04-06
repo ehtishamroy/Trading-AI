@@ -209,7 +209,7 @@ def place_order(
         return {"success": False, "error": f"Order failed: {result.retcode} - {result.comment}"}
 
     logger.success(
-        f"{'BUY' if order_type == 'buy' else 'SELL'} {symbol} | "
+        f"{'BUY' if order_type.lower() == 'buy' else 'SELL'} {symbol} | "
         f"Lot: {lot_size} | Price: {price} | SL: {stop_loss} | TP: {take_profit}"
     )
     return {
