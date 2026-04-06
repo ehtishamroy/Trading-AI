@@ -273,6 +273,34 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
                 f"(ML ensemble: {ensemble['direction']} @ {ensemble['confidence']:.0%})"
             )
 
+        # Calculate ATR-based SL/TP if missing (e.g. Aegis override, Claude said HOLD)
+        if decision != "HOLD" and (sl == 0.0 or tp == 0.0):
+            entry_price = current.get("ask") if decision == "BUY" else current.get("bid")
+            atr_value = df_features["atr_14"].iloc[-1] if "atr_14" in df_features.columns else 0
+            if entry_price and atr_value > 0:
+                pos_calc = risk.calculate_position(
+                    balance=account.get("balance", 200),
+                    atr=atr_value,
+                    price=entry_price,
+                    regime_multiplier=regime_advice.get("position_multiplier", 1.0),
+                )
+                sl_tp = risk.calculate_sl_tp(
+                    entry_price=entry_price,
+                    direction=decision,
+                    sl_distance=pos_calc["stop_loss_distance"],
+                    tp_distance=pos_calc["take_profit_distance"],
+                )
+                sl = sl_tp["stop_loss"]
+                tp = sl_tp["take_profit"]
+                lot_size = pos_calc["lot_size"]
+                logger.info(
+                    f"📐 ATR-based SL/TP calculated: SL={sl} TP={tp} "
+                    f"(ATR={atr_value:.5f}, distance={pos_calc['stop_loss_distance']:.5f})"
+                )
+            else:
+                logger.error(f"❌ Cannot calculate SL/TP: price={entry_price}, ATR={atr_value} — BLOCKING trade")
+                decision = "HOLD"
+
         if decision == "HOLD":
             logger.info(f"✅ Aegis ({aegis['score']}) + Claude HOLD — skipping execution.")
         else:

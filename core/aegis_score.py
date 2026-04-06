@@ -62,16 +62,16 @@ def calculate_aegis_score(
     can_trade = score >= AEGIS_NO_TRADE
 
     result = {
-        "score": score,
+        "score": float(score),
         "level": level,
         "label": label,
         "can_trade": can_trade,
         "components": {
-            "ml_confidence": round(ml_confidence * w["ml_confidence"] * 100, 1),
-            "sentiment": round(sentiment_alignment * w["sentiment"] * 100, 1),
-            "regime_fit": round(regime_fit * w["regime_fit"] * 100, 1),
-            "claude_verdict": round(claude_norm * w["claude_verdict"] * 100, 1),
-            "pattern_match": round(pattern_match * w["pattern_match"] * 100, 1),
+            "ml_confidence": float(round(ml_confidence * w["ml_confidence"] * 100, 1)),
+            "sentiment": float(round(sentiment_alignment * w["sentiment"] * 100, 1)),
+            "regime_fit": float(round(regime_fit * w["regime_fit"] * 100, 1)),
+            "claude_verdict": float(round(claude_norm * w["claude_verdict"] * 100, 1)),
+            "pattern_match": float(round(pattern_match * w["pattern_match"] * 100, 1)),
         }
     }
 
