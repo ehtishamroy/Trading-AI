@@ -273,7 +273,7 @@ Respond ONLY with JSON (no markdown, no explanation):
             resp = requests.post(
                 f"{self.base_url}/api/chat",
                 json=payload,
-                timeout=120  # Local LLM can be slow on first run
+                timeout=300  # 5 min — CPU-only VPS needs more time
             )
             resp.raise_for_status()
             data = resp.json()
