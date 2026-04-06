@@ -168,6 +168,10 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     claude_call_threshold = AEGIS_NO_TRADE - claude_max_pts
 
     # ── Step 8: Claude Multi-Agent Debate ────────────────
+    # Three tiers of Claude skipping to save API costs:
+    # 1. Pre-score too low → Claude can't save it → skip
+    # 2. Pre-score already strong (>=75) → ML override will handle it → skip
+    # 3. Pre-score in the middle → Claude might tip the scale → call
     if pre_score < claude_call_threshold:
         logger.info(
             f"⏭️  Skipping Claude (pre-score {pre_score} < {claude_call_threshold}) — "
@@ -181,6 +185,22 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
             },
             "bull_case": "Skipped (pre-score too low)",
             "bear_case": "Skipped (pre-score too low)",
+            "judge_raw": "Skipped",
+        }
+        verdict = debate_result["verdict"]
+    elif pre_score >= 75:
+        logger.info(
+            f"⏭️  Skipping Claude (pre-score {pre_score} >= 75) — "
+            f"ML signals strong enough, Aegis override will handle it. Saving API budget."
+        )
+        debate_result = {
+            "verdict": {
+                "decision": "HOLD",
+                "confidence": 0,
+                "reasoning": f"Pre-score {pre_score}/80 is strong — skipped Claude (ML override will trade).",
+            },
+            "bull_case": "Skipped (pre-score strong enough)",
+            "bear_case": "Skipped (pre-score strong enough)",
             "judge_raw": "Skipped",
         }
         verdict = debate_result["verdict"]
