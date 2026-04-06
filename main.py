@@ -304,7 +304,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
                 if order_res.get("success"):
                     logger.success(f"✅ Trade Executed: {decision} {market} at {current.get('bid')} | SL: {sl} | TP: {tp}")
                     # Log to journal
-                    journal.log_trade({
+                    journal.record_trade({
                         "ticket": order_res.get("ticket"),
                         "market": market,
                         "direction": decision,
