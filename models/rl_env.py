@@ -16,9 +16,9 @@ RL_ADDITIONAL_STATES = 2  # [position, unrealized_pnl]
 RL_EXCLUDED_COLS = {'time', 'open', 'high', 'low', 'close', 'volume'}
 
 
-def get_rl_feature_cols(df_columns):
+def get_rl_feature_cols(df):
     """Get RL feature columns from a DataFrame, excluding raw price/time columns."""
-    return [c for c in df_columns if c not in RL_EXCLUDED_COLS and not hasattr(df_columns, 'dtype') or True]
+    return [c for c in df.columns if c not in RL_EXCLUDED_COLS and df[c].dtype != "object"]
 
 
 class TradingEnv(gym.Env):
@@ -39,7 +39,7 @@ class TradingEnv(gym.Env):
         self.window_size = window_size
         
         # Determine feature columns (exclude time, close, unscaled prices)
-        self.feature_cols = [c for c in df.columns if c not in ['time', 'open', 'high', 'low', 'close', 'volume'] and not df[c].dtype == "object"]
+        self.feature_cols = [c for c in df.columns if c not in RL_EXCLUDED_COLS and df[c].dtype != "object"]
         
         # Action Space: 0 = Flat, 1 = Long, 2 = Short
         self.action_space = spaces.Discrete(3)
@@ -71,7 +71,7 @@ class TradingEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        self.current_step = 50 + self.window_size  # Start a bit in to ensure moving averages are populated
+        self.current_step = max(200, 50 + self.window_size)  # Start after EMA_200 is valid
         self.balance = self.initial_balance
         self.position = 0
         self.entry_price = 0.0

@@ -50,6 +50,10 @@ def train_market(market: str):
     feature_cols = get_feature_columns()
     df = normalize_features(df, feature_cols)
 
+    # Drop any rows with NaN in target (critical for XGBoost)
+    df = df.dropna(subset=["target"])
+    df["target"] = df["target"].astype(int)
+
     logger.info(f"Dataset: {len(df)} rows × {len(feature_cols)} features")
 
     # ── Step 3: Train/test split (time-based, no shuffling) ──

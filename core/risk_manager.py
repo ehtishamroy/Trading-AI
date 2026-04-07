@@ -26,6 +26,7 @@ class RiskManager:
         self.consecutive_losses = 0
         self.daily_pnl = 0.0
         self.starting_balance = STARTING_CAPITAL
+        self.daily_starting_balance = STARTING_CAPITAL
         self.paused_until = None
 
     def can_trade(self, balance: float) -> dict:
@@ -44,9 +45,9 @@ class RiskManager:
         if self.trades_today >= MAX_TRADES_PER_DAY:
             return {"allowed": False, "reason": f"Max {MAX_TRADES_PER_DAY} trades/day reached"}
 
-        # Rule 3: Daily drawdown
-        if balance > 0:
-            daily_dd = self.daily_pnl / balance
+        # Rule 3: Daily drawdown (use start-of-day balance as denominator)
+        if self.daily_starting_balance > 0:
+            daily_dd = self.daily_pnl / self.daily_starting_balance
             if daily_dd < -MAX_DAILY_DRAWDOWN:
                 return {"allowed": False, "reason": f"Daily drawdown limit hit ({daily_dd:.1%})"}
 
@@ -80,8 +81,23 @@ class RiskManager:
         # Take profit = minimum 2:1 reward-to-risk
         take_profit_distance = stop_loss_distance * MIN_REWARD_RISK
 
-        # Position size = fixed micro lot (0.01) for $200 account
-        lot_size = LOT_SIZE
+        # Dynamic position sizing based on risk amount and SL distance
+        # For every 1 lot, SL distance = $ loss. So lot_size = risk_amount / (SL_distance * contract_size_factor)
+        # For crypto (BTC): 0.01 lot * $500 SL distance ≈ $5 risk
+        # For forex (EUR): 0.01 lot * 0.0015 SL * 100000 ≈ $1.5 risk
+        if stop_loss_distance > 0 and price > 0:
+            # Approximate: for micro lot (0.01), risk per pip ≈ SL_distance * lot_size
+            # Solve for lot_size: lot_size = risk_amount / stop_loss_distance
+            # Then adjust for contract size
+            if price > 1000:  # Crypto (BTC, etc.)
+                lot_size = risk_amount / stop_loss_distance
+            else:  # Forex
+                lot_size = risk_amount / (stop_loss_distance * 100000)
+
+            # Round to 0.01 step and clamp to safe range
+            lot_size = round(max(0.01, min(lot_size, 0.10)), 2)
+        else:
+            lot_size = LOT_SIZE
 
         return {
             "lot_size": lot_size,
@@ -126,12 +142,14 @@ class RiskManager:
         else:
             self.consecutive_losses = 0  # Reset on a win
 
-    def reset_daily(self):
+    def reset_daily(self, current_balance: float = None):
         """Reset daily counters (call at start of each trading day)."""
         self.trades_today = 0
         self.daily_pnl = 0.0
         self.paused_until = None
-        logger.info("Daily risk counters reset")
+        if current_balance:
+            self.daily_starting_balance = current_balance
+        logger.info(f"Daily risk counters reset (starting balance: ${self.daily_starting_balance:.2f})")
 
     def get_status(self) -> dict:
         """Get current risk status."""

@@ -55,16 +55,14 @@ else:
 AEGIS_CAUTION = 70             # yellow zone (human must approve)  
 
 AEGIS_WEIGHTS = {
-    "ml_confidence": 0.30,
-    "sentiment": 0.15,
-    "regime_fit": 0.25,
+    "ml_confidence": 0.35,
+    "regime_fit": 0.30,
     "claude_verdict": 0.10,
-    "pattern_match": 0.20,
+    "pattern_match": 0.25,
 }
 
 # ─── API KEYS (from .env) ────────────────────────────────
 CLAUDE_API_KEY = ""  # Replaced by Ollama — no API key needed
-NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
@@ -148,7 +146,5 @@ def _validate_config():
         warnings.warn("MT5_LOGIN is 0 — set MT5_LOGIN in .env for authenticated trading")
     if not MT5_PASSWORD:
         warnings.warn("MT5_PASSWORD is empty — set MT5_PASSWORD in .env")
-    if not NEWS_API_KEY:
-        warnings.warn("NEWS_API_KEY is empty — news sentiment will be unavailable")
 
 _validate_config()

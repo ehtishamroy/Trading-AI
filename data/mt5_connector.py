@@ -186,6 +186,10 @@ def place_order(
     else:
         return {"success": False, "error": f"Invalid order type: {order_type}"}
 
+    # Per-symbol slippage — crypto needs more due to volatility
+    slippage_map = {"BTCUSDm": 50, "BTCUSD": 50, "XAUUSDm": 15, "XAUUSD": 15}
+    deviation = slippage_map.get(symbol, 10)
+
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
         "symbol": symbol,
@@ -194,7 +198,7 @@ def place_order(
         "price": price,
         "sl": stop_loss,
         "tp": take_profit,
-        "deviation": 20,  # Max slippage in points
+        "deviation": deviation,
         "magic": 234000,  # Unique ID for our bot's orders
         "comment": comment,
         "type_time": mt5.ORDER_TIME_GTC,
@@ -209,7 +213,7 @@ def place_order(
         return {"success": False, "error": f"Order failed: {result.retcode} - {result.comment}"}
 
     logger.success(
-        f"{'BUY' if order_type == 'buy' else 'SELL'} {symbol} | "
+        f"{'BUY' if order_type.lower() == 'buy' else 'SELL'} {symbol} | "
         f"Lot: {lot_size} | Price: {price} | SL: {stop_loss} | TP: {take_profit}"
     )
     return {
@@ -274,6 +278,45 @@ def get_open_positions() -> list:
         }
         for p in positions
     ]
+
+
+def get_trade_history(days: int = 7, magic: int = 234000) -> list:
+    """
+    Get closed trade history from MT5 for our bot's orders.
+
+    Args:
+        days: How many days back to look
+        magic: Magic number to filter our bot's trades
+
+    Returns:
+        List of closed deal dicts with ticket, symbol, profit, etc.
+    """
+    from_date = datetime.now() - timedelta(days=days)
+    to_date = datetime.now()
+
+    deals = mt5.history_deals_get(from_date, to_date)
+    if deals is None:
+        return []
+
+    closed = []
+    for deal in deals:
+        # Only include our bot's closing deals (entry=1 means exit/close)
+        if deal.magic == magic and deal.entry == 1:
+            closed.append({
+                "ticket": deal.order,
+                "position_id": deal.position_id,
+                "symbol": deal.symbol,
+                "type": "buy" if deal.type == 0 else "sell",
+                "volume": deal.volume,
+                "price": deal.price,
+                "profit": deal.profit,
+                "commission": deal.commission,
+                "swap": deal.swap,
+                "time": datetime.fromtimestamp(deal.time),
+                "comment": deal.comment,
+            })
+
+    return closed
 
 
 def get_account_info() -> dict:

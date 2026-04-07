@@ -17,9 +17,8 @@ from config.settings import (
     TRADING_MODE, MIN_SIGNAL_CONFIDENCE, CLAUDE_MIN_CONFIDENCE,
     AEGIS_NO_TRADE, AEGIS_WEIGHTS, PROJECT_ROOT, LOGS_DIR,
 )
-from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order
+from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order, get_open_positions
 from data.features import compute_all_features, get_feature_columns, normalize_features
-from data.news_sentiment import get_sentiment_summary, format_for_claude
 from models.regime_detector import RegimeDetector
 from models.ensemble import combine_signals, format_for_claude as format_ensemble
 from core.claude_trader import ClaudeTrader, build_market_context
@@ -57,6 +56,10 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         Full analysis dict with recommendation and reasoning
     """
     symbol = MARKETS[market]["mt5_symbol"]
+
+    # Reconcile closed trades from MT5 before analysis
+    journal.reconcile_closed_trades()
+
     logger.info(f"\n{'='*60}")
     logger.info(f"📊 ANALYZING: {market} | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     logger.info(f"{'='*60}")
@@ -89,12 +92,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     regime_text = regime_detector.format_for_claude(regime)
     regime_advice = regime_detector.get_trading_advice(regime["regime"])
 
-    # ── Step 5: News sentiment ───────────────────────────
-    logger.info("Step 5: Fetching news sentiment...")
-    sentiment = get_sentiment_summary(market)
-    sentiment_text = format_for_claude(sentiment, market)
-
-    # ── Step 6: Ensemble signal ──────────────────────────
+    # ── Step 5: Ensemble signal ───────────────────────────
     logger.info("Step 6: Combining ML signals...")
     ensemble = combine_signals(lstm_signal, xgb_signal, regime)
     ensemble_text = format_ensemble(ensemble)
@@ -137,16 +135,10 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
 
     # ── Step 9: Pre-Score (Aegis without Claude) ─────────
     #   Calculate Aegis components BEFORE calling Claude.
-    #   If ML+Sentiment+Regime+Pattern alone can't possibly
-    #   reach the trade threshold even with a perfect Claude
-    #   score, skip the 3x Claude API calls entirely.
+    #   If ML+Regime+Pattern alone can't possibly reach the
+    #   trade threshold even with a perfect Claude score,
+    #   skip the Claude API call entirely.
     signal_dir = ensemble["direction"]
-    sent_score = sentiment.get("score", 0)
-    sentiment_alignment = 0.5  # Neutral default
-    if (signal_dir == "up" and sent_score > 0) or (signal_dir == "down" and sent_score < 0):
-        sentiment_alignment = 0.5 + abs(sent_score) * 0.5
-    elif sent_score != 0:
-        sentiment_alignment = 0.5 - abs(sent_score) * 0.3
 
     regime_fit = regime["confidence"]
     if regime_advice["bias"] == "CAUTIOUS":
@@ -158,7 +150,6 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     w = AEGIS_WEIGHTS
     pre_score = round((
         ensemble["confidence"] * w["ml_confidence"] +
-        sentiment_alignment * w["sentiment"] +
         regime_fit * w["regime_fit"] +
         pattern_win_rate * w["pattern_match"]
     ) * 100, 1)
@@ -168,6 +159,10 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     claude_call_threshold = AEGIS_NO_TRADE - claude_max_pts
 
     # ── Step 8: Claude Multi-Agent Debate ────────────────
+    # Three tiers of Claude skipping to save API costs:
+    # 1. Pre-score too low → Claude can't save it → skip
+    # 2. Pre-score already strong (>=75) → ML override will handle it → skip
+    # 3. Pre-score in the middle → Claude might tip the scale → call
     if pre_score < claude_call_threshold:
         logger.info(
             f"⏭️  Skipping Claude (pre-score {pre_score} < {claude_call_threshold}) — "
@@ -184,6 +179,22 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
             "judge_raw": "Skipped",
         }
         verdict = debate_result["verdict"]
+    elif pre_score >= 75:
+        logger.info(
+            f"⏭️  Skipping Claude (pre-score {pre_score} >= 75) — "
+            f"ML signals strong enough, Aegis override will handle it. Saving API budget."
+        )
+        debate_result = {
+            "verdict": {
+                "decision": "HOLD",
+                "confidence": 0,
+                "reasoning": f"Pre-score {pre_score}/80 is strong — skipped Claude (ML override will trade).",
+            },
+            "bull_case": "Skipped (pre-score strong enough)",
+            "bear_case": "Skipped (pre-score strong enough)",
+            "judge_raw": "Skipped",
+        }
+        verdict = debate_result["verdict"]
     else:
         logger.info(f"Step 8: Running Claude Multi-Agent Debate (pre-score {pre_score}/80 — Claude may tip the scale)...")
         market_context = build_market_context(
@@ -191,7 +202,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
             current_price=current,
             ensemble_signal=ensemble_text,
             regime_info=regime_text,
-            sentiment_info=sentiment_text,
+            sentiment_info="No news sentiment data available.",
             account_info=account,
             pattern_memory=pattern_text,
         )
@@ -203,7 +214,6 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     logger.info("Step 9: Calculating Full Aegis Score...")
     aegis = calculate_aegis_score(
         ml_confidence=ensemble["confidence"],
-        sentiment_alignment=sentiment_alignment,
         regime_fit=regime_fit,
         claude_confidence=verdict.get("confidence", 0),
         pattern_match=pattern_win_rate,
@@ -220,7 +230,6 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         "account": account,
         "ensemble": ensemble,
         "regime": regime,
-        "sentiment": sentiment,
         "debate": debate_result,
         "verdict": verdict,
         "aegis": aegis,
@@ -253,50 +262,90 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
                 f"(ML ensemble: {ensemble['direction']} @ {ensemble['confidence']:.0%})"
             )
 
+        # Calculate ATR-based SL/TP if missing (e.g. Aegis override, Claude said HOLD)
+        if decision != "HOLD" and (sl == 0.0 or tp == 0.0):
+            entry_price = current.get("ask") if decision == "BUY" else current.get("bid")
+            atr_value = df_features["atr_14"].iloc[-1] if "atr_14" in df_features.columns else 0
+            if entry_price and atr_value > 0:
+                pos_calc = risk.calculate_position(
+                    balance=account.get("balance", 200),
+                    atr=atr_value,
+                    price=entry_price,
+                    regime_multiplier=regime_advice.get("position_multiplier", 1.0),
+                )
+                sl_tp = risk.calculate_sl_tp(
+                    entry_price=entry_price,
+                    direction=decision,
+                    sl_distance=pos_calc["stop_loss_distance"],
+                    tp_distance=pos_calc["take_profit_distance"],
+                )
+                sl = sl_tp["stop_loss"]
+                tp = sl_tp["take_profit"]
+                lot_size = pos_calc["lot_size"]
+                logger.info(
+                    f"📐 ATR-based SL/TP calculated: SL={sl} TP={tp} "
+                    f"(ATR={atr_value:.5f}, distance={pos_calc['stop_loss_distance']:.5f})"
+                )
+            else:
+                logger.error(f"❌ Cannot calculate SL/TP: price={entry_price}, ATR={atr_value} — BLOCKING trade")
+                decision = "HOLD"
+
+        # Final SL/TP safety assertion — absolute last guard
+        if decision != "HOLD" and (sl <= 0 or tp <= 0):
+            logger.error(f"❌ SAFETY BLOCK: SL={sl} TP={tp} — refusing to trade without stop loss")
+            decision = "HOLD"
+
         if decision == "HOLD":
             logger.info(f"✅ Aegis ({aegis['score']}) + Claude HOLD — skipping execution.")
         else:
-            # Check dashboard state for Auto mode
-            is_auto = False
-            try:
-                state_file = Path("logs/dashboard_state.json")
-                if state_file.exists():
-                    import json
-                    with open(state_file) as f:
-                        state = json.load(f)
-                        is_auto = state.get("trading_mode") == "Auto"
-            except Exception as e:
-                logger.warning(f"Could not read dashboard state: {e}")
+            # Check for duplicate positions on same symbol
+            mt5_symbol = MARKETS[market]["mt5_symbol"]
+            existing_positions = get_open_positions()
+            has_position = any(p["symbol"] == mt5_symbol for p in existing_positions)
+            if has_position:
+                logger.warning(f"⚠️ Already have open position on {mt5_symbol} — skipping to avoid double exposure")
+            else:
+                # Check dashboard state for Auto mode
+                is_auto = False
+                try:
+                    state_file = Path("logs/dashboard_state.json")
+                    if state_file.exists():
+                        import json
+                        with open(state_file) as f:
+                            state = json.load(f)
+                            is_auto = state.get("trading_mode") == "Auto"
+                except Exception as e:
+                    logger.warning(f"Could not read dashboard state: {e}")
 
-            if is_auto:
-                logger.info("🤖 Auto-Mode Active: Executing trade on MT5...")
+                if is_auto:
+                    logger.info("🤖 Auto-Mode Active: Executing trade on MT5...")
 
-                mt5_symbol = MARKETS[market]["mt5_symbol"]
-                order_res = place_order(
-                    symbol=mt5_symbol,
-                    order_type=decision,
-                    lot_size=lot_size,
-                    stop_loss=sl,
-                    take_profit=tp,
-                    comment=f"Aegis_{aegis['score']:.0f}"
-                )
+                    order_res = place_order(
+                        symbol=mt5_symbol,
+                        order_type=decision,
+                        lot_size=lot_size,
+                        stop_loss=sl,
+                        take_profit=tp,
+                        comment=f"Aegis_{aegis['score']:.0f}"
+                    )
 
-                if order_res.get("success"):
-                    logger.success(f"✅ Trade Executed: {decision} {market} at {current.get('bid')} | SL: {sl} | TP: {tp}")
-                    # Log to journal
-                    journal.log_trade({
-                        "ticket": order_res.get("ticket"),
-                        "market": market,
-                        "direction": decision,
-                        "entry_price": order_res.get("price", current.get('bid')),
-                        "lot_size": lot_size,
-                        "aegis_score": aegis['score'],
-                        "status": "OPEN",
-                        "sl": sl,
-                        "tp": tp
-                    })
-                else:
-                    logger.error(f"❌ Trade Execution Failed: {order_res.get('error')}")
+                    if order_res.get("success"):
+                        logger.success(f"✅ Trade Executed: {decision} {market} at {current.get('bid')} | SL: {sl} | TP: {tp}")
+                        # Log to journal
+                        journal.record_trade({
+                            "ticket": order_res.get("ticket"),
+                            "market": market,
+                            "direction": decision,
+                            "entry_price": order_res.get("price", current.get('bid')),
+                            "lot_size": lot_size,
+                            "aegis_score": aegis['score'],
+                            "regime": regime["regime"],
+                            "status": "OPEN",
+                            "sl": sl,
+                            "tp": tp
+                        })
+                    else:
+                        logger.error(f"❌ Trade Execution Failed: {order_res.get('error')}")
 
     # ── Send Telegram Alert (Always) ─────────────────────
     try:
@@ -387,6 +436,20 @@ def run_preflight_checks() -> bool:
         logger.error("PREFLIGHT FAIL: Cannot connect to MT5")
         return False
     logger.info("  [OK] MT5 connection")
+
+    # 1b. Check for existing open positions
+    existing = get_open_positions()
+    if existing:
+        logger.warning(f"  [WARN] Found {len(existing)} open position(s) from previous session:")
+        for pos in existing:
+            logger.warning(f"    - {pos['type'].upper()} {pos['symbol']} | Lot: {pos['volume']} | PnL: ${pos['profit']:.2f} | SL: {pos['sl']} | TP: {pos['tp']}")
+    else:
+        logger.info("  [OK] No existing open positions")
+
+    # 1c. Reconcile closed trades with journal
+    reconciled = journal.reconcile_closed_trades()
+    if reconciled > 0:
+        logger.info(f"  [OK] Reconciled {reconciled} closed trade(s) with journal")
 
     # 2. Verify Ollama is running
     try:

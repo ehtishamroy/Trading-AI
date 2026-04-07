@@ -45,18 +45,20 @@ class RegimeDetector:
         Returns:
             {regime: str, confidence: float, details: dict}
         """
-        latest = df.iloc[-1]
+        # Use average of last 3 candles to avoid single-candle spike flipping regime
+        lookback = min(3, len(df))
+        recent = df.iloc[-lookback:]
 
-        # Extract key indicators
-        adx = latest.get("adx", 20)
-        rsi = latest.get("rsi_14", 50)
-        bb_width = latest.get("bb_width", 0.02)
-        atr_pct = latest.get("atr_pct", 0.01)
-        volatility_ratio = latest.get("volatility_ratio", 1.0)
-        price_vs_ema50 = latest.get("price_vs_ema50", 0)
-        price_vs_ema200 = latest.get("price_vs_ema200", 0)
-        ema_cross = latest.get("ema_cross_9_21", 0)
-        vol_ratio = latest.get("vol_ratio", 1.0)
+        # Extract key indicators (averaged over last 3 bars for stability)
+        adx = recent["adx"].mean() if "adx" in recent.columns else 20
+        rsi = recent["rsi_14"].mean() if "rsi_14" in recent.columns else 50
+        bb_width = recent["bb_width"].mean() if "bb_width" in recent.columns else 0.02
+        atr_pct = recent["atr_pct"].mean() if "atr_pct" in recent.columns else 0.01
+        volatility_ratio = recent["volatility_ratio"].mean() if "volatility_ratio" in recent.columns else 1.0
+        price_vs_ema50 = recent["price_vs_ema50"].mean() if "price_vs_ema50" in recent.columns else 0
+        price_vs_ema200 = recent["price_vs_ema200"].mean() if "price_vs_ema200" in recent.columns else 0
+        ema_cross = recent["ema_cross_9_21"].iloc[-1] if "ema_cross_9_21" in recent.columns else 0
+        vol_ratio = recent["vol_ratio"].mean() if "vol_ratio" in recent.columns else 1.0
 
         # Score each regime
         scores = {

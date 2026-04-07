@@ -52,34 +52,36 @@ def combine_signals(lstm_signal: dict, xgb_signal: dict, regime: dict) -> dict:
     combined_score = (lstm_vote * ENSEMBLE_LSTM_WEIGHT) + (xgb_vote * ENSEMBLE_XGBOOST_WEIGHT)
 
     # Direction
-    if abs(combined_score) < 0.1:
+    if abs(combined_score) < 0.05:
         direction = "neutral"
     else:
         direction = "up" if combined_score > 0 else "down"
 
     # Confidence = absolute value of combined score
-    confidence = min(abs(combined_score) / 0.6, 1.0)  # Normalize to 0-1
+    # Max possible score = 1.0 * 0.55 + 1.0 * 0.45 = 1.0
+    # So combined_score is already in [0, 1] range — no magic number needed
+    confidence = min(abs(combined_score), 1.0)
 
     # Agreement check — both models pointing same way?
     agreement = lstm_signal["direction"] == xgb_signal["direction"]
 
-    # Boost confidence if models agree, penalize if they disagree
+    # Additive adjustments instead of multiplicative (prevents collapse to near-zero)
     if agreement:
-        confidence = min(confidence * 1.15, 1.0)
+        confidence = min(confidence + 0.10, 1.0)  # +10% for agreement
     else:
-        confidence *= 0.75
+        confidence = max(confidence - 0.15, 0.05)  # -15% for disagreement, floor at 5%
 
-    # Regime adjustment
+    # Regime adjustment (additive, not multiplicative)
     regime_name = regime.get("regime", "RANGING")
     if regime_name == "HIGH_VOLATILITY":
-        confidence *= 0.8  # Lower confidence in volatile markets
+        confidence = max(confidence - 0.10, 0.05)  # -10% in volatile markets
     elif regime_name in ("TRENDING_UP", "TRENDING_DOWN"):
         # Boost if signal aligns with trend
         if (regime_name == "TRENDING_UP" and direction == "up") or \
            (regime_name == "TRENDING_DOWN" and direction == "down"):
-            confidence = min(confidence * 1.1, 1.0)
+            confidence = min(confidence + 0.10, 1.0)  # +10% trend alignment
         else:
-            confidence *= 0.7  # Penalize counter-trend signals
+            confidence = max(confidence - 0.15, 0.05)  # -15% counter-trend
 
     # Signal strength
     if confidence >= 0.75:
