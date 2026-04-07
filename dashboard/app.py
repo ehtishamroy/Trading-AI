@@ -195,7 +195,7 @@ profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0
 # Load latest signal for Aegis Score display
 latest = load_latest_signal()
 try:
-    latest_aegis = float(latest.get("aegis", {}).get("score", 0)) if latest else 0
+    latest_aegis = float(latest.get("aegis", {}).get("score", 0)) if latest and latest.get("aegis") else 0
 except (TypeError, ValueError):
     latest_aegis = 0
 

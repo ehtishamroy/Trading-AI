@@ -392,7 +392,7 @@ You MUST respond in this exact JSON format and NOTHING else:
             "bear_case": "N/A — LLM not available",
         }
 
-
+    
 def build_market_context(
     market: str,
     current_price: dict,

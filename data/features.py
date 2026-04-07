@@ -173,6 +173,7 @@ def compute_all_features(df: pd.DataFrame, market_type: str = "forex") -> pd.Dat
     df["target"] = target_series
 
     df.dropna(subset=["target"], inplace=True)
+    df["target"] = df["target"].astype(int)
 
     # Drop NaN rows (from rolling indicators)
     initial_len = len(df)
