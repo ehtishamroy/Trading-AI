@@ -1,6 +1,6 @@
 """
 Aegis Score Calculator — The single 0-100 composite score.
-Combines ML confidence, sentiment, regime fit, Claude verdict, and pattern history.
+Combines ML confidence, regime fit, Claude verdict, and pattern history.
 """
 
 import sys
@@ -13,7 +13,6 @@ from config.settings import AEGIS_WEIGHTS, AEGIS_NO_TRADE, AEGIS_CAUTION
 
 def calculate_aegis_score(
     ml_confidence: float,
-    sentiment_alignment: float,
     regime_fit: float,
     claude_confidence: int,
     pattern_match: float
@@ -23,7 +22,6 @@ def calculate_aegis_score(
 
     Args:
         ml_confidence: 0.0–1.0 from ensemble signal
-        sentiment_alignment: 0.0–1.0 (1.0 = news fully aligns with signal)
         regime_fit: 0.0–1.0 (1.0 = signal fits regime perfectly)
         claude_confidence: 1–10 from Judge verdict
         pattern_match: 0.0–1.0 from pattern memory (historical win rate)
@@ -39,7 +37,6 @@ def calculate_aegis_score(
     # Calculate weighted score
     raw_score = (
         ml_confidence * w["ml_confidence"] +
-        sentiment_alignment * w["sentiment"] +
         regime_fit * w["regime_fit"] +
         claude_norm * w["claude_verdict"] +
         pattern_match * w["pattern_match"]
@@ -68,7 +65,6 @@ def calculate_aegis_score(
         "can_trade": can_trade,
         "components": {
             "ml_confidence": float(round(ml_confidence * w["ml_confidence"] * 100, 1)),
-            "sentiment": float(round(sentiment_alignment * w["sentiment"] * 100, 1)),
             "regime_fit": float(round(regime_fit * w["regime_fit"] * 100, 1)),
             "claude_verdict": float(round(claude_norm * w["claude_verdict"] * 100, 1)),
             "pattern_match": float(round(pattern_match * w["pattern_match"] * 100, 1)),
@@ -87,9 +83,8 @@ def format_aegis_display(aegis: dict) -> str:
     return (
         f"═══ AEGIS SCORE: {aegis['score']}/100 ═══\n"
         f"[{bar}] {aegis['label']}\n\n"
-        f"ML Confidence:  {comp['ml_confidence']:.1f}/30\n"
-        f"Sentiment:      {comp['sentiment']:.1f}/15\n"
-        f"Regime Fit:     {comp['regime_fit']:.1f}/20\n"
-        f"Claude Verdict: {comp['claude_verdict']:.1f}/20\n"
-        f"Pattern Match:  {comp['pattern_match']:.1f}/15\n"
+        f"ML Confidence:  {comp['ml_confidence']:.1f}/35\n"
+        f"Regime Fit:     {comp['regime_fit']:.1f}/30\n"
+        f"Claude Verdict: {comp['claude_verdict']:.1f}/10\n"
+        f"Pattern Match:  {comp['pattern_match']:.1f}/25\n"
     )

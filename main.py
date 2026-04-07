@@ -19,7 +19,6 @@ from config.settings import (
 )
 from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order, get_open_positions
 from data.features import compute_all_features, get_feature_columns, normalize_features
-from data.news_sentiment import get_sentiment_summary, format_for_claude
 from models.regime_detector import RegimeDetector
 from models.ensemble import combine_signals, format_for_claude as format_ensemble
 from core.claude_trader import ClaudeTrader, build_market_context
@@ -93,12 +92,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     regime_text = regime_detector.format_for_claude(regime)
     regime_advice = regime_detector.get_trading_advice(regime["regime"])
 
-    # ── Step 5: News sentiment ───────────────────────────
-    logger.info("Step 5: Fetching news sentiment...")
-    sentiment = get_sentiment_summary(market)
-    sentiment_text = format_for_claude(sentiment, market)
-
-    # ── Step 6: Ensemble signal ──────────────────────────
+    # ── Step 5: Ensemble signal ───────────────────────────
     logger.info("Step 6: Combining ML signals...")
     ensemble = combine_signals(lstm_signal, xgb_signal, regime)
     ensemble_text = format_ensemble(ensemble)
@@ -141,16 +135,10 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
 
     # ── Step 9: Pre-Score (Aegis without Claude) ─────────
     #   Calculate Aegis components BEFORE calling Claude.
-    #   If ML+Sentiment+Regime+Pattern alone can't possibly
-    #   reach the trade threshold even with a perfect Claude
-    #   score, skip the 3x Claude API calls entirely.
+    #   If ML+Regime+Pattern alone can't possibly reach the
+    #   trade threshold even with a perfect Claude score,
+    #   skip the Claude API call entirely.
     signal_dir = ensemble["direction"]
-    sent_score = sentiment.get("score", 0)
-    sentiment_alignment = 0.5  # Neutral default
-    if (signal_dir == "up" and sent_score > 0) or (signal_dir == "down" and sent_score < 0):
-        sentiment_alignment = 0.5 + abs(sent_score) * 0.5
-    elif sent_score != 0:
-        sentiment_alignment = 0.5 - abs(sent_score) * 0.3
 
     regime_fit = regime["confidence"]
     if regime_advice["bias"] == "CAUTIOUS":
@@ -162,7 +150,6 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     w = AEGIS_WEIGHTS
     pre_score = round((
         ensemble["confidence"] * w["ml_confidence"] +
-        sentiment_alignment * w["sentiment"] +
         regime_fit * w["regime_fit"] +
         pattern_win_rate * w["pattern_match"]
     ) * 100, 1)
@@ -215,7 +202,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
             current_price=current,
             ensemble_signal=ensemble_text,
             regime_info=regime_text,
-            sentiment_info=sentiment_text,
+            sentiment_info="No news sentiment data available.",
             account_info=account,
             pattern_memory=pattern_text,
         )
@@ -227,7 +214,6 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     logger.info("Step 9: Calculating Full Aegis Score...")
     aegis = calculate_aegis_score(
         ml_confidence=ensemble["confidence"],
-        sentiment_alignment=sentiment_alignment,
         regime_fit=regime_fit,
         claude_confidence=verdict.get("confidence", 0),
         pattern_match=pattern_win_rate,
@@ -244,7 +230,6 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         "account": account,
         "ensemble": ensemble,
         "regime": regime,
-        "sentiment": sentiment,
         "debate": debate_result,
         "verdict": verdict,
         "aegis": aegis,
