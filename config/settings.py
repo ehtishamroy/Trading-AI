@@ -65,6 +65,16 @@ AEGIS_WEIGHTS = {
 # ─── API KEYS (from .env) ────────────────────────────────
 CLAUDE_API_KEY = ""  # Replaced by Ollama — no API key needed
 NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
+
+# If no NEWS_API_KEY, redistribute sentiment weight to ML + regime
+if not NEWS_API_KEY:
+    AEGIS_WEIGHTS = {
+        "ml_confidence": 0.35,
+        "sentiment": 0.00,
+        "regime_fit": 0.30,
+        "claude_verdict": 0.10,
+        "pattern_match": 0.25,
+    }
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 

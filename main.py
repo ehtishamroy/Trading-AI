@@ -17,7 +17,7 @@ from config.settings import (
     TRADING_MODE, MIN_SIGNAL_CONFIDENCE, CLAUDE_MIN_CONFIDENCE,
     AEGIS_NO_TRADE, AEGIS_WEIGHTS, PROJECT_ROOT, LOGS_DIR,
 )
-from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order
+from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order, get_open_positions
 from data.features import compute_all_features, get_feature_columns, normalize_features
 from data.news_sentiment import get_sentiment_summary, format_for_claude
 from models.regime_detector import RegimeDetector
@@ -57,6 +57,10 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         Full analysis dict with recommendation and reasoning
     """
     symbol = MARKETS[market]["mt5_symbol"]
+
+    # Reconcile closed trades from MT5 before analysis
+    journal.reconcile_closed_trades()
+
     logger.info(f"\n{'='*60}")
     logger.info(f"📊 ANALYZING: {market} | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     logger.info(f"{'='*60}")
@@ -301,50 +305,62 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
                 logger.error(f"❌ Cannot calculate SL/TP: price={entry_price}, ATR={atr_value} — BLOCKING trade")
                 decision = "HOLD"
 
+        # Final SL/TP safety assertion — absolute last guard
+        if decision != "HOLD" and (sl <= 0 or tp <= 0):
+            logger.error(f"❌ SAFETY BLOCK: SL={sl} TP={tp} — refusing to trade without stop loss")
+            decision = "HOLD"
+
         if decision == "HOLD":
             logger.info(f"✅ Aegis ({aegis['score']}) + Claude HOLD — skipping execution.")
         else:
-            # Check dashboard state for Auto mode
-            is_auto = False
-            try:
-                state_file = Path("logs/dashboard_state.json")
-                if state_file.exists():
-                    import json
-                    with open(state_file) as f:
-                        state = json.load(f)
-                        is_auto = state.get("trading_mode") == "Auto"
-            except Exception as e:
-                logger.warning(f"Could not read dashboard state: {e}")
+            # Check for duplicate positions on same symbol
+            mt5_symbol = MARKETS[market]["mt5_symbol"]
+            existing_positions = get_open_positions()
+            has_position = any(p["symbol"] == mt5_symbol for p in existing_positions)
+            if has_position:
+                logger.warning(f"⚠️ Already have open position on {mt5_symbol} — skipping to avoid double exposure")
+            else:
+                # Check dashboard state for Auto mode
+                is_auto = False
+                try:
+                    state_file = Path("logs/dashboard_state.json")
+                    if state_file.exists():
+                        import json
+                        with open(state_file) as f:
+                            state = json.load(f)
+                            is_auto = state.get("trading_mode") == "Auto"
+                except Exception as e:
+                    logger.warning(f"Could not read dashboard state: {e}")
 
-            if is_auto:
-                logger.info("🤖 Auto-Mode Active: Executing trade on MT5...")
+                if is_auto:
+                    logger.info("🤖 Auto-Mode Active: Executing trade on MT5...")
 
-                mt5_symbol = MARKETS[market]["mt5_symbol"]
-                order_res = place_order(
-                    symbol=mt5_symbol,
-                    order_type=decision,
-                    lot_size=lot_size,
-                    stop_loss=sl,
-                    take_profit=tp,
-                    comment=f"Aegis_{aegis['score']:.0f}"
-                )
+                    order_res = place_order(
+                        symbol=mt5_symbol,
+                        order_type=decision,
+                        lot_size=lot_size,
+                        stop_loss=sl,
+                        take_profit=tp,
+                        comment=f"Aegis_{aegis['score']:.0f}"
+                    )
 
-                if order_res.get("success"):
-                    logger.success(f"✅ Trade Executed: {decision} {market} at {current.get('bid')} | SL: {sl} | TP: {tp}")
-                    # Log to journal
-                    journal.record_trade({
-                        "ticket": order_res.get("ticket"),
-                        "market": market,
-                        "direction": decision,
-                        "entry_price": order_res.get("price", current.get('bid')),
-                        "lot_size": lot_size,
-                        "aegis_score": aegis['score'],
-                        "status": "OPEN",
-                        "sl": sl,
-                        "tp": tp
-                    })
-                else:
-                    logger.error(f"❌ Trade Execution Failed: {order_res.get('error')}")
+                    if order_res.get("success"):
+                        logger.success(f"✅ Trade Executed: {decision} {market} at {current.get('bid')} | SL: {sl} | TP: {tp}")
+                        # Log to journal
+                        journal.record_trade({
+                            "ticket": order_res.get("ticket"),
+                            "market": market,
+                            "direction": decision,
+                            "entry_price": order_res.get("price", current.get('bid')),
+                            "lot_size": lot_size,
+                            "aegis_score": aegis['score'],
+                            "regime": regime["regime"],
+                            "status": "OPEN",
+                            "sl": sl,
+                            "tp": tp
+                        })
+                    else:
+                        logger.error(f"❌ Trade Execution Failed: {order_res.get('error')}")
 
     # ── Send Telegram Alert (Always) ─────────────────────
     try:
@@ -435,6 +451,20 @@ def run_preflight_checks() -> bool:
         logger.error("PREFLIGHT FAIL: Cannot connect to MT5")
         return False
     logger.info("  [OK] MT5 connection")
+
+    # 1b. Check for existing open positions
+    existing = get_open_positions()
+    if existing:
+        logger.warning(f"  [WARN] Found {len(existing)} open position(s) from previous session:")
+        for pos in existing:
+            logger.warning(f"    - {pos['type'].upper()} {pos['symbol']} | Lot: {pos['volume']} | PnL: ${pos['profit']:.2f} | SL: {pos['sl']} | TP: {pos['tp']}")
+    else:
+        logger.info("  [OK] No existing open positions")
+
+    # 1c. Reconcile closed trades with journal
+    reconciled = journal.reconcile_closed_trades()
+    if reconciled > 0:
+        logger.info(f"  [OK] Reconciled {reconciled} closed trade(s) with journal")
 
     # 2. Verify Ollama is running
     try:

@@ -233,7 +233,9 @@ def predict(model: TradingLSTM, X: np.ndarray) -> dict:
         prob = model(x_tensor).item()
 
     direction = "up" if prob > 0.5 else "down"
-    confidence = prob if prob > 0.5 else (1 - prob)
+    # Margin-based confidence: 0.5 → 0.0, 0.75 → 0.5, 1.0 → 1.0
+    # This properly reflects model certainty (55% prob = 10% confidence, not 55%)
+    confidence = abs(prob - 0.5) * 2.0
 
     return {
         "direction": direction,

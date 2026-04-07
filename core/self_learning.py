@@ -28,24 +28,28 @@ class TradingJournal:
 
     def record_trade(self, trade: dict):
         """
-        Record a completed trade with all context.
+        Record a trade entry with all context.
 
         trade should contain:
-        - market, direction, entry_price, exit_price, pnl
-        - aegis_score, ml_signals, claude_reasoning
-        - regime, timestamp, model_version
+        - market, direction, entry_price, ticket, lot_size
+        - aegis_score, sl, tp, status
         """
         entry = {
             "id": len(self.journal) + 1,
             "timestamp": datetime.now().isoformat(),
+            "ticket": trade.get("ticket", 0),
             "market": trade.get("market", ""),
             "direction": trade.get("direction", ""),
             "entry_price": trade.get("entry_price", 0),
             "exit_price": trade.get("exit_price", 0),
             "pnl": trade.get("pnl", 0),
             "pnl_pct": trade.get("pnl_pct", 0),
-            "result": "WIN" if trade.get("pnl", 0) > 0 else "LOSS",
+            "result": "OPEN",
+            "status": trade.get("status", "OPEN"),
             "aegis_score": trade.get("aegis_score", 0),
+            "sl": trade.get("sl", 0),
+            "tp": trade.get("tp", 0),
+            "lot_size": trade.get("lot_size", 0.01),
             "ml_confidence": trade.get("ml_confidence", 0),
             "claude_confidence": trade.get("claude_confidence", 0),
             "claude_reasoning": trade.get("claude_reasoning", ""),
@@ -57,10 +61,50 @@ class TradingJournal:
 
         self.journal.append(entry)
         self._save_json(self.journal_file, self.journal)
-        logger.info(f"Trade #{entry['id']} recorded: {entry['result']} (${entry['pnl']:.2f})")
+        logger.info(f"Trade #{entry['id']} recorded: {entry['direction']} {entry['market']} (ticket: {entry['ticket']})")
 
-        # Update pattern memory
-        self._update_patterns(entry)
+    def reconcile_closed_trades(self):
+        """
+        Pull closed positions from MT5 history and update journal entries
+        with exit_price, PnL, and status=CLOSED. Then update pattern memory.
+        """
+        try:
+            from data.mt5_connector import get_trade_history
+        except ImportError:
+            logger.warning("Cannot import get_trade_history — skipping reconciliation")
+            return 0
+
+        closed_deals = get_trade_history(days=7)
+        if not closed_deals:
+            return 0
+
+        updated = 0
+        for deal in closed_deals:
+            # Find matching open journal entry by ticket/position_id
+            for entry in self.journal:
+                if entry.get("status") != "OPEN":
+                    continue
+                # Match by ticket number
+                entry_ticket = entry.get("ticket", 0)
+                if entry_ticket and (entry_ticket == deal.get("position_id") or entry_ticket == deal.get("ticket")):
+                    pnl = deal["profit"] + deal.get("commission", 0) + deal.get("swap", 0)
+                    entry["exit_price"] = deal["price"]
+                    entry["pnl"] = round(pnl, 2)
+                    entry["pnl_pct"] = round(pnl / max(entry.get("entry_price", 1) * entry.get("lot_size", 0.01), 0.01) * 100, 2)
+                    entry["result"] = "WIN" if pnl > 0 else "LOSS"
+                    entry["status"] = "CLOSED"
+                    entry["close_time"] = deal.get("time", datetime.now()).isoformat() if isinstance(deal.get("time"), datetime) else str(deal.get("time", ""))
+                    updated += 1
+                    logger.info(f"Trade #{entry['id']} reconciled: {entry['result']} (${pnl:.2f})")
+                    # Update pattern memory with actual outcome
+                    self._update_patterns(entry)
+                    break
+
+        if updated > 0:
+            self._save_json(self.journal_file, self.journal)
+            logger.info(f"Reconciled {updated} closed trade(s) from MT5 history")
+
+        return updated
 
     def _update_patterns(self, trade: dict):
         """Update the pattern memory with this trade's outcome."""
@@ -121,16 +165,16 @@ class TradingJournal:
         Returns win rate (0.0-1.0) or 0.5 if no data exists.
         """
         key = f"{market}_{regime}_{direction}"
-        if key in self.patterns and self.patterns[key]["total"] >= 3:
+        if key in self.patterns and self.patterns[key]["total"] >= 10:
             return self.patterns[key]["win_rate"]
         # Fall back to market-level stats if specific pattern has too few trades
         market_patterns = {k: v for k, v in self.patterns.items() if k.startswith(market)}
         if market_patterns:
             total_wins = sum(v["wins"] for v in market_patterns.values())
             total_trades = sum(v["total"] for v in market_patterns.values())
-            if total_trades >= 3:
+            if total_trades >= 10:
                 return round(total_wins / total_trades, 3)
-        return 0.5  # Default when no historical data
+        return 0.5  # Default when not enough historical data (need 10+ trades)
 
     def get_daily_summary(self) -> dict:
         """Get today's trading summary."""

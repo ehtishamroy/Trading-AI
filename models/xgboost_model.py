@@ -109,7 +109,8 @@ def predict_xgboost(model: xgb.XGBClassifier, X: np.ndarray) -> dict:
 
     proba = model.predict_proba(X.reshape(1, -1))[0]
     direction = "up" if proba[1] > 0.5 else "down"
-    confidence = max(proba)
+    # Margin-based confidence: 0.5 → 0.0, 0.75 → 0.5, 1.0 → 1.0
+    confidence = abs(proba[1] - 0.5) * 2.0
 
     return {
         "direction": direction,
