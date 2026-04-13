@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config.settings import (
     ACTIVE_MARKET, MARKETS, ENTRY_TIMEFRAME, TREND_TIMEFRAME,
     TRADING_MODE, MIN_SIGNAL_CONFIDENCE, CLAUDE_MIN_CONFIDENCE,
-    AEGIS_NO_TRADE, AEGIS_WEIGHTS, PROJECT_ROOT, LOGS_DIR,
+    AEGIS_NO_TRADE, AEGIS_OVERRIDE_THRESHOLD, AEGIS_WEIGHTS,
+    PROJECT_ROOT, LOGS_DIR,
 )
 from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv, get_current_price, get_account_info, place_order, get_open_positions
 from data.features import compute_all_features, get_feature_columns, normalize_features
@@ -161,7 +162,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     # ── Step 8: Claude Multi-Agent Debate ────────────────
     # Three tiers of Claude skipping to save API costs:
     # 1. Pre-score too low → Claude can't save it → skip
-    # 2. Pre-score already strong (>=75) → ML override will handle it → skip
+    # 2. Pre-score already strong (>= AEGIS_OVERRIDE_THRESHOLD) → ML override will handle it → skip
     # 3. Pre-score in the middle → Claude might tip the scale → call
     if pre_score < claude_call_threshold:
         logger.info(
@@ -179,9 +180,9 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
             "judge_raw": "Skipped",
         }
         verdict = debate_result["verdict"]
-    elif pre_score >= 75:
+    elif pre_score >= AEGIS_OVERRIDE_THRESHOLD:
         logger.info(
-            f"⏭️  Skipping Claude (pre-score {pre_score} >= 75) — "
+            f"⏭️  Skipping Claude (pre-score {pre_score} >= {AEGIS_OVERRIDE_THRESHOLD}) — "
             f"ML signals strong enough, Aegis override will handle it. Saving API budget."
         )
         debate_result = {
@@ -254,11 +255,12 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
         tp = float(verdict.get("take_profit") or 0.0)
         lot_size = risk_check.get("suggested_lot", 0.01)
 
-        # Override HOLD when Aegis is strong (>=75) — ML stack is confident enough
-        if decision == "HOLD" and aegis["score"] >= 75 and ensemble["direction"] in ("up", "down"):
+        # Override HOLD when Aegis is strong — ML stack is confident enough.
+        # Threshold is AEGIS_OVERRIDE_THRESHOLD (65 in demo / 75 in live).
+        if decision == "HOLD" and aegis["score"] >= AEGIS_OVERRIDE_THRESHOLD and ensemble["direction"] in ("up", "down"):
             decision = "BUY" if ensemble["direction"] == "up" else "SELL"
             logger.info(
-                f"⚡ Aegis GREEN ({aegis['score']}) overrides Claude HOLD → {decision} "
+                f"⚡ Aegis GREEN ({aegis['score']} >= {AEGIS_OVERRIDE_THRESHOLD}) overrides Claude HOLD → {decision} "
                 f"(ML ensemble: {ensemble['direction']} @ {ensemble['confidence']:.0%})"
             )
 

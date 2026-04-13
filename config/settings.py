@@ -48,11 +48,16 @@ BACKTEST_END = "2025-12-31"
 # ─── AEGIS SCORE THRESHOLDS ──────────────────────────────
 DEMO_MODE_OVERRIDES = True
 if DEMO_MODE_OVERRIDES and TRADING_MODE == "demo":
-    AEGIS_NO_TRADE = 55        # Below 55 = no trade (DEMO LEARNING MODE)
+    AEGIS_NO_TRADE = 55            # Below 55 = no trade (DEMO LEARNING MODE)
+    AEGIS_OVERRIDE_THRESHOLD = 65  # ML-only override fires at 65 in demo.
+                                   # pattern_match is locked at 12.5/25 until
+                                   # 10+ real trades exist, so the production
+                                   # value of 75 is unreachable during learning.
 else:
-    AEGIS_NO_TRADE = 65        # Production requirement
+    AEGIS_NO_TRADE = 65            # Production requirement
+    AEGIS_OVERRIDE_THRESHOLD = 75  # Conservative in live mode
 
-AEGIS_CAUTION = 70             # yellow zone (human must approve)  
+AEGIS_CAUTION = 70                 # yellow zone (human must approve)
 
 AEGIS_WEIGHTS = {
     "ml_confidence": 0.35,
