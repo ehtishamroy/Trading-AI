@@ -107,7 +107,14 @@ class TradingJournal:
         return updated
 
     def _update_patterns(self, trade: dict):
-        """Update the pattern memory with this trade's outcome."""
+        """Update the pattern memory with this trade's outcome.
+
+        NOTE: This records EVERY outcome unconditionally — no sample-size gating
+        happens here. Statistical filtering (the 10-trade minimum) lives on the
+        READ side in get_pattern_stats() and get_pattern_memory_for_claude().
+        Do NOT add a minimum here: recording must continue during the learning
+        phase, otherwise the 10-trade threshold would be unreachable forever.
+        """
         # Create a pattern key from the trade's characteristics
         regime = trade.get("regime", "UNKNOWN")
         direction = trade.get("direction", "unknown")
@@ -142,19 +149,50 @@ class TradingJournal:
         """
         Format pattern memory as context for Claude.
         Claude uses this to make decisions based on past performance.
+
+        IMPORTANT: Patterns with fewer than MIN_PATTERN_SAMPLES trades are
+        statistically meaningless and are EXCLUDED from the per-row display.
+        Exposing raw win rates on 3–5 sample sizes causes Claude to rationalize
+        HOLD on noise, producing a negative feedback loop where the system
+        cannot build new history. Mirrors the 10-trade threshold used by
+        get_pattern_stats().
         """
+        MIN_PATTERN_SAMPLES = 10
+
         lines = ["## Pattern Memory (Historical Performance)"]
         relevant = {k: v for k, v in self.patterns.items() if market in k}
 
         if not relevant:
-            lines.append("No historical patterns recorded yet. System is learning.")
+            lines.append(
+                "No historical patterns recorded yet. System is in initial learning phase — "
+                "pattern memory is NEUTRAL and should NOT bias your decision. "
+                "Rely on ML ensemble, regime, and price action."
+            )
             return "\n".join(lines)
 
-        for key, data in sorted(relevant.items(), key=lambda x: x[1]["total"], reverse=True):
-            emoji = "✅" if data["win_rate"] > 0.55 else ("⚠️" if data["win_rate"] > 0.40 else "❌")
+        # Split by statistical significance
+        significant = {k: v for k, v in relevant.items() if v["total"] >= MIN_PATTERN_SAMPLES}
+        learning = {k: v for k, v in relevant.items() if v["total"] < MIN_PATTERN_SAMPLES}
+
+        if significant:
+            lines.append("### Statistically Significant Patterns (>= 10 trades)")
+            for key, data in sorted(significant.items(), key=lambda x: x[1]["total"], reverse=True):
+                emoji = "✅" if data["win_rate"] > 0.55 else ("⚠️" if data["win_rate"] > 0.40 else "❌")
+                lines.append(
+                    f"- {emoji} **{key}**: {data['win_rate']:.0%} win rate "
+                    f"({data['total']} trades, ${data['total_pnl']:.2f} total PnL)"
+                )
+
+        if learning:
+            total_learning = sum(v["total"] for v in learning.values())
+            lines.append("")
+            lines.append("### Learning Phase (< 10 trades — NOT statistically significant)")
             lines.append(
-                f"- {emoji} **{key}**: {data['win_rate']:.0%} win rate "
-                f"({data['total']} trades, ${data['total_pnl']:.2f} total PnL)"
+                f"- {len(learning)} pattern(s) with {total_learning} total trade(s) — "
+                f"sample size too small to be meaningful. These are EXCLUDED from "
+                f"decision logic. Treat pattern memory as NEUTRAL (0.5) and do NOT "
+                f"cite 'historical win rate' as a reason to HOLD. System needs more "
+                f"trades to learn — taking reasonable setups now builds the dataset."
             )
 
         return "\n".join(lines)
