@@ -1,6 +1,6 @@
 """
-LSTM Model — Deep learning model for price direction prediction.
-Processes sequences of 60 candles → predicts up/down probability.
+LSTM Model — Deep learning model for trade outcome prediction.
+Processes sequences of 30 candles → predicts triple-barrier TP/SL outcome.
 Train on vast.ai GPU, infer on local CPU.
 """
 
@@ -21,10 +21,10 @@ from config.settings import (
 
 class TradingLSTM(nn.Module):
     """
-    LSTM neural network for predicting price direction.
+    LSTM neural network for predicting trade outcome.
 
-    Input: sequence of [60 candles × N features]
-    Output: probability of price going UP in next 12 bars
+    Input: sequence of [30 candles × N features]
+    Output: probability of take-profit being hit (triple barrier)
     """
 
     def __init__(self, input_size: int, hidden_size: int = LSTM_HIDDEN_SIZE,

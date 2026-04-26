@@ -25,12 +25,14 @@ def train_xgboost(
     y_train: np.ndarray,
     X_val: np.ndarray,
     y_val: np.ndarray,
-    market: str = "EURUSD"
+    market: str = "EURUSD",
+    sample_weight: np.ndarray = None,
 ) -> xgb.XGBClassifier:
     """
-    Train XGBoost classifier for Buy/Sell pattern recognition.
+    Train XGBoost classifier for trade outcome prediction.
 
-    Uses TimeSeriesSplit internally for validation.
+    Args:
+        sample_weight: Optional per-sample weights (e.g. exponential decay for recency).
     """
     model = xgb.XGBClassifier(
         n_estimators=XGBOOST_N_ESTIMATORS,
@@ -38,21 +40,23 @@ def train_xgboost(
         learning_rate=XGBOOST_LEARNING_RATE,
         objective="binary:logistic",
         eval_metric="logloss",
-        tree_method="hist",         # Fast on both CPU and GPU
+        tree_method="hist",
         subsample=0.8,
         colsample_bytree=0.8,
-        reg_alpha=0.1,              # L1 regularization
-        reg_lambda=1.0,             # L2 regularization
+        reg_alpha=0.1,
+        reg_lambda=1.0,
         random_state=42,
         early_stopping_rounds=20,
     )
 
     logger.info(f"Training XGBoost for {market}...")
-    model.fit(
-        X_train, y_train,
-        eval_set=[(X_val, y_val)],
-        verbose=False,
-    )
+    fit_params = {
+        "eval_set": [(X_val, y_val)],
+        "verbose": False,
+    }
+    if sample_weight is not None:
+        fit_params["sample_weight"] = sample_weight
+    model.fit(X_train, y_train, **fit_params)
 
     # Evaluate
     val_pred = model.predict(X_val)

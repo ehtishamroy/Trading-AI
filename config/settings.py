@@ -90,11 +90,16 @@ CLAUDE_MODEL = OLLAMA_MODEL
 CLAUDE_MAX_TOKENS = OLLAMA_MAX_TOKENS
 
 # ─── ML TRAINING ──────────────────────────────────────────
-LSTM_SEQUENCE_LEN = 30               # 60 candles lookback
+LSTM_SEQUENCE_LEN = 30               # 30 candles lookback (M15 = 7.5 hours)
 LSTM_HIDDEN_SIZE = 128
 LSTM_NUM_LAYERS = 2
 LSTM_DROPOUT = 0.2
-PREDICTION_HORIZON = 4              # Predict 12 bars ahead
+PREDICTION_HORIZON = 12              # Max holding period: 12 bars (3 hours on M15)
+
+# Triple Barrier Labeling — replaces naive shift(-N) target
+TRIPLE_BARRIER_TP_ATR = 1.5          # Take-profit = 1.5 × ATR(14)
+TRIPLE_BARRIER_SL_ATR = 1.0          # Stop-loss = 1.0 × ATR(14)
+TRIPLE_BARRIER_MAX_HOLDING = 12      # Max bars to hold before timeout
 
 XGBOOST_N_ESTIMATORS = 300
 XGBOOST_MAX_DEPTH = 6

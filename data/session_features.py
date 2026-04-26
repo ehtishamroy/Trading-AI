@@ -83,8 +83,8 @@ def compute_session_features(df: pd.DataFrame) -> pd.DataFrame:
         lambda x: x.rolling(20, min_periods=5).mean()
     ) if "high_low_pct" in df.columns else 0
 
-    # Cleanup temp columns
-    df.drop(columns=["hour_of_day", "day_of_week"], errors="ignore", inplace=True)
+    # Cleanup temp columns (keep day_of_week — used by features pipeline)
+    df.drop(columns=["hour_of_day"], errors="ignore", inplace=True)
 
     logger.info(f"Session features added: {len([c for c in df.columns if c.startswith('sess_')])} session cols")
     return df

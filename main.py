@@ -80,7 +80,9 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
     logger.info("Step 2: Computing features...")
     market_type = MARKETS[market].get("type", "forex")
     df_features = compute_all_features(df_15m, market_type=market_type)
-    feature_cols = get_feature_columns()
+    feature_cols = get_feature_columns(market_type=market_type)
+    # Filter to only columns that actually exist in the DataFrame
+    feature_cols = [c for c in feature_cols if c in df_features.columns]
     df_norm = normalize_features(df_features, feature_cols)
 
     # ── Step 3: ML predictions ───────────────────────────
@@ -95,7 +97,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
 
     # ── Step 5: Ensemble signal ───────────────────────────
     logger.info("Step 6: Combining ML signals...")
-    ensemble = combine_signals(lstm_signal, xgb_signal, regime)
+    ensemble = combine_signals(lstm_signal, xgb_signal, regime, market=market)
     ensemble_text = format_ensemble(ensemble)
 
     # ── Step 7: Pattern memory ───────────────────────────
@@ -484,7 +486,8 @@ def run_preflight_checks() -> bool:
     # 3. Verify saved models exist and load
     from config.settings import MODELS_DIR
     from data.features import get_feature_columns
-    feature_cols = get_feature_columns()
+    market_type = MARKETS[ACTIVE_MARKET].get("type", "forex")
+    feature_cols = get_feature_columns(market_type=market_type)
 
     for model_type, ext in [("lstm", "pt"), ("xgboost", "pkl")]:
         model_path = MODELS_DIR / f"{model_type}_{ACTIVE_MARKET}.{ext}"

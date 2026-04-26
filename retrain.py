@@ -17,8 +17,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from config.settings import (
-    MARKETS, ENTRY_TIMEFRAME, MODELS_DIR, DATA_DIR, LOGS_DIR
+    MARKETS, ENTRY_TIMEFRAME, MODELS_DIR, DATA_DIR, LOGS_DIR,
+    TRIPLE_BARRIER_MAX_HOLDING,
 )
+import numpy as np
 from data.mt5_connector import connect_mt5, disconnect_mt5
 from data.fetcher import fetch_and_save, load_data
 from data.features import compute_all_features, get_feature_columns, normalize_features
@@ -93,15 +95,19 @@ def retrain_market(market: str) -> dict:
     # Feature engineering
     market_type = MARKETS[market].get("type", "forex")
     df = compute_all_features(df, market_type=market_type)
-    feature_cols = get_feature_columns()
+    feature_cols = get_feature_columns(market_type=market_type)
+    feature_cols = [c for c in feature_cols if c in df.columns]
     df = normalize_features(df, feature_cols)
+    df = df.dropna(subset=["target"])
+    df["target"] = df["target"].astype(int)
 
-    # Time-based split
+    # Time-based split with purge gap to prevent target leakage
+    purge_gap = TRIPLE_BARRIER_MAX_HOLDING + 2
     split_70 = int(len(df) * 0.7)
     split_85 = int(len(df) * 0.85)
 
-    df_train = df.iloc[:split_70]
-    df_val = df.iloc[split_70:split_85]
+    df_train = df.iloc[:split_70 - purge_gap]
+    df_val = df.iloc[split_70:split_85 - purge_gap]
     df_test = df.iloc[split_85:]
 
     logger.info(f"  Train: {len(df_train)} | Val: {len(df_val)} | Test: {len(df_test)}")
