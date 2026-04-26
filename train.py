@@ -20,8 +20,7 @@ from config.settings import (
     MARKETS, ENTRY_TIMEFRAME, TRAIN_TEST_SPLIT,
     LSTM_SEQUENCE_LEN, MODELS_DIR, PREDICTION_HORIZON
 )
-from data.mt5_connector import connect_mt5, disconnect_mt5
-from data.fetcher import fetch_and_save, load_data
+from data.fetcher import load_data
 from data.features import compute_all_features, get_feature_columns, normalize_features
 from models.lstm_model import create_sequences, train_lstm
 from models.xgboost_model import train_xgboost, get_feature_importance
@@ -175,6 +174,8 @@ def main():
 
     if args.fetch:
         logger.info("Fetching fresh data from MT5...")
+        from data.mt5_connector import connect_mt5, disconnect_mt5
+        from data.fetcher import fetch_and_save
         if connect_mt5():
             for market_key, info in MARKETS.items():
                 if args.market == "all" or args.market == market_key:

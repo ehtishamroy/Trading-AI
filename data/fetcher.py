@@ -11,7 +11,6 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.settings import DATA_DIR, MARKETS, ENTRY_TIMEFRAME, TREND_TIMEFRAME
-from data.mt5_connector import connect_mt5, disconnect_mt5, get_ohlcv
 
 
 def validate_ohlcv(df: pd.DataFrame, symbol: str = "", timeframe: str = "") -> pd.DataFrame:
@@ -70,6 +69,7 @@ def fetch_and_save(
     Fetch OHLCV data from MT5 and save as Parquet.
     Parquet files are fast to load and small on disk.
     """
+    from data.mt5_connector import get_ohlcv
     df = get_ohlcv(symbol, timeframe, num_bars)
     if df.empty:
         logger.error(f"No data fetched for {symbol} {timeframe}")
@@ -114,6 +114,7 @@ def fetch_all_data():
     logger.info("DOWNLOADING ALL HISTORICAL DATA FROM MT5")
     logger.info("=" * 60)
 
+    from data.mt5_connector import connect_mt5, disconnect_mt5
     if not connect_mt5():
         logger.error("Cannot connect to MT5. Make sure MT5 is running!")
         return
@@ -137,6 +138,7 @@ def update_data(symbol: str, timeframe: str, bars: int = 500) -> pd.DataFrame:
     Update existing data with latest bars.
     Used in live trading loop to keep data fresh.
     """
+    from data.mt5_connector import get_ohlcv
     filepath = DATA_DIR / f"{symbol}_{timeframe}.parquet"
 
     # Fetch latest bars

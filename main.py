@@ -85,7 +85,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
 
     # ── Step 3: ML predictions ───────────────────────────
     logger.info("Step 3: Getting ML predictions...")
-    lstm_signal, xgb_signal = _get_ml_signals(market, df_norm, feature_cols)
+    lstm_signal, xgb_signal, ml_available = _get_ml_signals(market, df_norm, feature_cols)
 
     # ── Step 4: Regime detection ─────────────────────────
     logger.info("Step 4: Detecting market regime...")
@@ -180,7 +180,7 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
             "judge_raw": "Skipped",
         }
         verdict = debate_result["verdict"]
-    elif pre_score >= AEGIS_OVERRIDE_THRESHOLD:
+    elif pre_score >= AEGIS_OVERRIDE_THRESHOLD and ml_available:
         logger.info(
             f"⏭️  Skipping Claude (pre-score {pre_score} >= {AEGIS_OVERRIDE_THRESHOLD}) — "
             f"ML signals strong enough, Aegis override will handle it. Saving API budget."
@@ -257,11 +257,17 @@ def analyze_market(market: str = ACTIVE_MARKET) -> dict:
 
         # Override HOLD when Aegis is strong — ML stack is confident enough.
         # Threshold is AEGIS_OVERRIDE_THRESHOLD (65 in demo / 75 in live).
-        if decision == "HOLD" and aegis["score"] >= AEGIS_OVERRIDE_THRESHOLD and ensemble["direction"] in ("up", "down"):
+        # GUARD: Only override if ML models actually loaded (not placeholder signals).
+        if decision == "HOLD" and aegis["score"] >= AEGIS_OVERRIDE_THRESHOLD and ensemble["direction"] in ("up", "down") and ml_available:
             decision = "BUY" if ensemble["direction"] == "up" else "SELL"
             logger.info(
                 f"⚡ Aegis GREEN ({aegis['score']} >= {AEGIS_OVERRIDE_THRESHOLD}) overrides Claude HOLD → {decision} "
                 f"(ML ensemble: {ensemble['direction']} @ {ensemble['confidence']:.0%})"
+            )
+        elif decision == "HOLD" and aegis["score"] >= AEGIS_OVERRIDE_THRESHOLD and not ml_available:
+            logger.warning(
+                f"⚠️ Aegis score {aegis['score']} >= {AEGIS_OVERRIDE_THRESHOLD} but ML models are "
+                f"PLACEHOLDER — refusing to override. Retrain: python train.py --market {market}"
             )
 
         # Calculate ATR-based SL/TP if missing (e.g. Aegis override, Claude said HOLD)
@@ -397,7 +403,12 @@ def _get_ml_signals(market: str, df: object, feature_cols: list) -> tuple:
     """
     Get predictions from ML models (LSTM + XGBoost).
     If models aren't trained yet, returns placeholder signals.
+    Returns (lstm_signal, xgb_signal, ml_available).
+    ml_available is True only when at least one model loaded successfully.
     """
+    lstm_ok = False
+    xgb_ok = False
+
     try:
         from models.lstm_model import load_lstm_model, predict, create_sequences
         from config.settings import LSTM_SEQUENCE_LEN
@@ -407,6 +418,7 @@ def _get_ml_signals(market: str, df: object, feature_cols: list) -> tuple:
         if len(features) >= LSTM_SEQUENCE_LEN:
             latest_seq = features[-LSTM_SEQUENCE_LEN:]
             lstm_signal = predict(model, latest_seq)
+            lstm_ok = True
         else:
             lstm_signal = {"direction": "neutral", "confidence": 0.5}
     except Exception as e:
@@ -418,11 +430,15 @@ def _get_ml_signals(market: str, df: object, feature_cols: list) -> tuple:
         model = load_xgboost_model(market)
         latest_features = df[feature_cols].values[-1]
         xgb_signal = predict_xgboost(model, latest_features)
+        xgb_ok = True
     except Exception as e:
         logger.warning(f"XGBoost model unavailable for {market} — using placeholder: {e}")
         xgb_signal = {"direction": "neutral", "confidence": 0.5}
 
-    return lstm_signal, xgb_signal
+    ml_available = lstm_ok or xgb_ok
+    if not ml_available:
+        logger.warning(f"⚠️ NO ML models loaded for {market} — all signals are PLACEHOLDER. Retrain: python train.py --market {market}")
+    return lstm_signal, xgb_signal, ml_available
 
 
 def run_preflight_checks() -> bool:
@@ -489,9 +505,19 @@ def run_preflight_checks() -> bool:
                         all_ok = False
                 logger.info(f"  [OK] {model_type.upper()} model loaded")
             except Exception as e:
-                logger.warning(f"  [WARN] {model_type.upper()} model load failed: {e}")
+                logger.error(
+                    f"  [CRITICAL] {model_type.upper()} model CANNOT LOAD — "
+                    f"trades will use PLACEHOLDER signals! Error: {e}"
+                )
+                logger.error(f"  → Retrain: python train.py --market {ACTIVE_MARKET}")
+                all_ok = False
         else:
-            logger.warning(f"  [WARN] No {model_type.upper()} model for {ACTIVE_MARKET} — run train.py first")
+            logger.error(
+                f"  [CRITICAL] No {model_type.upper()} model for {ACTIVE_MARKET} — "
+                f"trades will use PLACEHOLDER signals!"
+            )
+            logger.error(f"  → Train: python train.py --market {ACTIVE_MARKET}")
+            all_ok = False
 
     status = "ALL SYSTEMS GO" if all_ok else "SOME WARNINGS — proceeding with caution"
     logger.info(f"Pre-flight: {status}")
